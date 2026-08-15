@@ -1,7 +1,7 @@
 # STOW
 
 <p align="center">
-  <img src="assets/stow-readme-banner.png" alt="STOW editorial archive banner" />
+  <img src="assets/stow-readme-banner.png" alt="STOW global clipboard and private notes banner" />
 </p>
 
 STOW is a private, cross-device clipboard and notes workspace. It provides a
@@ -11,8 +11,13 @@ access them from any signed-in device.
 ## Preview
 
 <p align="center">
-  <img src="assets/stow-app-preview.png" alt="STOW application preview" width="960" />
+  <img src="assets/stow-workspace-preview.png" alt="STOW authenticated workspace preview" width="960" />
 </p>
+
+## Live Demo
+
+Try the hosted service at [note.gonets.top](https://note.gonets.top). STOW can
+also be self-hosted; see [Local Development](#local-development) below.
 
 ## Overview
 
