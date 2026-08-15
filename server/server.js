@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -723,6 +724,23 @@ app.use((error, _req, res, _next) => {
   if (status >= 500) console.error("STOW request failed", error);
   return res.status(status).json({ code, message: status >= 500 ? "服務暫時無法完成要求" : error.message });
 });
+
+async function sendAuthEntryPage(req, res, next) {
+  try {
+    const indexPath = path.join(publicRoot, "index.html");
+    const source = await readFile(indexPath, "utf8");
+    const html = source.replace(
+      '<dialog class="auth-dialog" id="authDialog"',
+      '<dialog class="auth-dialog" id="authDialog" open',
+    );
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.type("html").send(html);
+  } catch (error) {
+    next(error);
+  }
+}
+
+app.get(["/login", "/register"], sendAuthEntryPage);
 
 app.use(express.static(publicRoot, {
   index: "index.html",
