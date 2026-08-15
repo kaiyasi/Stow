@@ -414,6 +414,8 @@ function closeDialog(dialog) {
 
 function closeAuthDialog() {
   state.pendingShareId = null;
+  $("#authPassword").value = "";
+  $("#authConfirm").value = "";
   closeDialog($("#authDialog"));
 }
 
@@ -649,10 +651,8 @@ function setAuthMode(mode) {
 function openAuthDialog(pendingShareId = null) {
   state.pendingShareId = pendingShareId;
   setAuthMode("login");
-  $("#authHandle").value = state.authHandle || "";
-  $("#authGmail").value = state.authGmail || "";
-  $("#authPassword").value = "";
-  $("#authConfirm").value = "";
+  if (!$("#authHandle").value) $("#authHandle").value = state.authHandle || "";
+  if (!$("#authGmail").value) $("#authGmail").value = state.authGmail || "";
   $("#termsAccepted").checked = false;
   $("#authPassword").required = true;
   openDialog($("#authDialog"));
@@ -983,6 +983,8 @@ $("#landingLogin").addEventListener("click", () => openAuthDialog());
 $("#landingRegister").addEventListener("click", () => {
   openAuthDialog();
   setAuthMode("register");
+  $("#authPassword").value = "";
+  $("#authConfirm").value = "";
 });
 $("#closeAuth").addEventListener("click", closeAuthDialog);
 $("#closeAccount").addEventListener("click", closeAccountDialog);
@@ -1162,6 +1164,8 @@ $("#passwordResetConfirmForm").addEventListener("submit", (event) => {
 
 $("#signupButton").addEventListener("click", () => {
   const registering = $("#authForm").dataset.authMode === "register";
+  $("#authPassword").value = "";
+  $("#authConfirm").value = "";
   setAuthMode(registering ? "login" : "register");
 });
 
