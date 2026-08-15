@@ -417,6 +417,7 @@ function closeAuthDialog() {
   $("#authPassword").value = "";
   $("#authConfirm").value = "";
   closeDialog($("#authDialog"));
+  clearAuthEntryURL();
 }
 
 function openPasswordResetDialog() {
@@ -661,9 +662,27 @@ function openAuthDialog(pendingShareId = null) {
 
 function navigateToAuth(mode) {
   const url = new URL(window.location.href);
+  url.pathname = mode === "register" ? "/register" : "/login";
   url.search = "";
-  url.searchParams.set("auth", mode === "register" ? "register" : "login");
+  url.hash = "";
   window.location.assign(url.toString());
+}
+
+function authEntryModeFromURL() {
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (pathname === "/login") return "login";
+  if (pathname === "/register") return "register";
+  const legacyMode = new URLSearchParams(window.location.search).get("auth");
+  return legacyMode === "login" || legacyMode === "register" ? legacyMode : null;
+}
+
+function clearAuthEntryURL() {
+  if (!authEntryModeFromURL()) return;
+  const url = new URL(window.location.href);
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  window.history.replaceState({}, "", url.toString());
 }
 
 function updateShareAccess() {
@@ -1025,9 +1044,11 @@ $("#authForm").addEventListener("submit", (event) => {
         state.authHandle = handle.toLowerCase();
         state.authGmail = gmail.toLowerCase();
         setAuthMode("login");
-        if (new URLSearchParams(window.location.search).get("auth") === "register") {
+        if (authEntryModeFromURL() === "register") {
           const url = new URL(window.location.href);
-          url.searchParams.set("auth", "login");
+          url.pathname = "/login";
+          url.search = "";
+          url.hash = "";
           window.history.replaceState({}, "", url.toString());
         }
         $("#authHandle").value = handle;
@@ -1044,6 +1065,7 @@ $("#authForm").addEventListener("submit", (event) => {
       await refreshItems();
       state.pendingShareId = null;
       closeDialog($("#authDialog"));
+      clearAuthEntryURL();
       showToast("已登入 STOW · 同步已開啟");
       if (pendingShareId) {
         window.setTimeout(() => openShareDialog(state.items.find((item) => item.id === pendingShareId)), 120);
@@ -1372,12 +1394,16 @@ async function openPasswordResetFromURL() {
 }
 
 async function openAuthFromURL() {
-  const mode = new URLSearchParams(window.location.search).get("auth");
-  if (mode !== "login" && mode !== "register") return false;
+  const mode = authEntryModeFromURL();
+  if (!mode) return false;
   if (state.authenticated) return false;
-  openAuthDialog();
+  if (!$("#authDialog").open) openAuthDialog();
   if (mode === "register") setAuthMode("register");
   return true;
+}
+
+if (!new URLSearchParams(window.location.search).has("reset") && !new URLSearchParams(window.location.search).has("share")) {
+  void openAuthFromURL();
 }
 
 async function bootstrap() {
@@ -1387,11 +1413,15 @@ async function bootstrap() {
     if (session.user) {
       setAuthenticated(session.user, []);
       await refreshItems();
+      if (authEntryModeFromURL()) {
+        closeDialog($("#authDialog"));
+        clearAuthEntryURL();
+      }
     }
   } catch (error) {
     showApiError(error, "目前無法連線到 STOW 服務");
   }
-  if (!(await openPasswordResetFromURL()) && !(await openShareGateFromURL())) await openAuthFromURL();
+  if (!(await openPasswordResetFromURL())) await openShareGateFromURL();
 }
 
 void bootstrap();
