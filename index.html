@@ -280,7 +280,7 @@
           </div>
           <div class="auth-signal"><i></i><span>ENCRYPTED SYNC / READY</span><b id="authSignalIndex">02</b></div>
         </div>
-        <form class="auth-form" id="authForm" autocomplete="on">
+        <form class="auth-form" id="authForm" name="login" method="post" action="/api/auth/login" autocomplete="on">
           <div class="dialog-header"><div><p class="section-kicker">ACCOUNT / SIGN IN</p><h2 id="authTitle">登入你的 STOW</h2></div><button class="detail-close" id="closeAuth" type="button" aria-label="關閉登入視窗"><svg aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
           <p class="auth-intro" id="authIntro">登入後才能啟用跨裝置同步，也能建立只開放給特定對象的分享連結。</p>
           <label class="auth-field"><span>HANDLE / 帳號名稱</span><input id="authHandle" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" placeholder="kei" required /></label>
@@ -402,6 +402,6 @@
       <div class="dialog-actions"><button class="dialog-secondary" id="sharedPreviewCopy" type="button">複製內容</button><button class="auth-submit dialog-primary" id="sharedPreviewDone" type="button"><span>完成</span><svg aria-hidden="true"><use href="#icon-check"></use></svg></button></div>
     </dialog>
 
-    <script src="app.js?v=20260815-13"></script>
+    <script src="app.js?v=20260815-14"></script>
   </body>
 </html>

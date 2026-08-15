@@ -724,7 +724,15 @@ app.use((error, _req, res, _next) => {
   return res.status(status).json({ code, message: status >= 500 ? "服務暫時無法完成要求" : error.message });
 });
 
-app.use(express.static(publicRoot, { index: "index.html", maxAge: isProduction ? "1h" : 0 }));
+app.use(express.static(publicRoot, {
+  index: "index.html",
+  maxAge: isProduction ? "1h" : 0,
+  setHeaders(res, filePath) {
+    if (path.extname(filePath) === ".html") {
+      res.setHeader("Cache-Control", "no-store, max-age=0");
+    }
+  },
+}));
 app.get("*", (_req, res) => res.sendFile(path.join(publicRoot, "index.html")));
 
 async function initialize() {

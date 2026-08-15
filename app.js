@@ -659,6 +659,13 @@ function openAuthDialog(pendingShareId = null) {
   window.setTimeout(() => $("#authHandle").focus(), 60);
 }
 
+function navigateToAuth(mode) {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.searchParams.set("auth", mode === "register" ? "register" : "login");
+  window.location.assign(url.toString());
+}
+
 function updateShareAccess() {
   const access = $("input[name='shareAccess']:checked")?.value || "recipient";
   state.shareAccess = access;
@@ -720,7 +727,7 @@ function configureShareGate(access, title = "STOW 內容") {
 async function openShareGateFromURL() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("share");
-  if (!token) return;
+  if (!token) return false;
   state.shareToken = token;
   try {
     const data = await api(`/shares/${encodeURIComponent(token)}`);
@@ -728,10 +735,11 @@ async function openShareGateFromURL() {
   } catch (error) {
     if (error instanceof StowApiError && error.code === "AUTH_REQUIRED") {
       configureShareGate(error.data.access, error.data.title);
-      return;
+      return true;
     }
     showApiError(error, "無法開啟這條分享連結");
   }
+  return true;
 }
 
 function clearShareURL() {
@@ -978,13 +986,10 @@ $("#entryContent").addEventListener("input", updateCharCount);
 $("#entryTitle").addEventListener("keydown", (event) => { if (event.key === "Enter") event.preventDefault(); });
 $("#saveEntry").addEventListener("click", saveEntry);
 
-$("#accountButton").addEventListener("click", () => state.authenticated ? openAccountDialog() : openAuthDialog());
-$("#landingLogin").addEventListener("click", () => openAuthDialog());
+$("#accountButton").addEventListener("click", () => state.authenticated ? openAccountDialog() : navigateToAuth("login"));
+$("#landingLogin").addEventListener("click", () => navigateToAuth("login"));
 $("#landingRegister").addEventListener("click", () => {
-  openAuthDialog();
-  setAuthMode("register");
-  $("#authPassword").value = "";
-  $("#authConfirm").value = "";
+  navigateToAuth("register");
 });
 $("#closeAuth").addEventListener("click", closeAuthDialog);
 $("#closeAccount").addEventListener("click", closeAccountDialog);
@@ -1020,6 +1025,11 @@ $("#authForm").addEventListener("submit", (event) => {
         state.authHandle = handle.toLowerCase();
         state.authGmail = gmail.toLowerCase();
         setAuthMode("login");
+        if (new URLSearchParams(window.location.search).get("auth") === "register") {
+          const url = new URL(window.location.href);
+          url.searchParams.set("auth", "login");
+          window.history.replaceState({}, "", url.toString());
+        }
         $("#authHandle").value = handle;
         $("#authPassword").value = "";
         $("#authConfirm").value = "";
@@ -1361,6 +1371,15 @@ async function openPasswordResetFromURL() {
   return true;
 }
 
+async function openAuthFromURL() {
+  const mode = new URLSearchParams(window.location.search).get("auth");
+  if (mode !== "login" && mode !== "register") return false;
+  if (state.authenticated) return false;
+  openAuthDialog();
+  if (mode === "register") setAuthMode("register");
+  return true;
+}
+
 async function bootstrap() {
   try {
     await loadCsrfToken();
@@ -1372,7 +1391,7 @@ async function bootstrap() {
   } catch (error) {
     showApiError(error, "目前無法連線到 STOW 服務");
   }
-  if (!(await openPasswordResetFromURL())) await openShareGateFromURL();
+  if (!(await openPasswordResetFromURL()) && !(await openShareGateFromURL())) await openAuthFromURL();
 }
 
 void bootstrap();
