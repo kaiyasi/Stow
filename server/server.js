@@ -15,6 +15,7 @@ import { createMailTransporter, sendPasswordResetEmail as deliverPasswordResetEm
 const app = express();
 const {
   isProduction,
+  trustProxy,
   port,
   host,
   sessionMaxAge,
@@ -30,20 +31,20 @@ const mailTransporter = createMailTransporter();
 let databaseReady = false;
 
 app.disable("x-powered-by");
-app.set("trust proxy", 1);
+app.set("trust proxy", trustProxy);
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       baseUri: ["'self'"],
       connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
       imgSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'"],
+      styleSrc: ["'self'", "https://fonts.googleapis.com"],
       ...(isProduction ? { upgradeInsecureRequests: [] } : {}),
     },
   },
@@ -148,7 +149,13 @@ function validateItemInput(input, partial = false) {
 function parseCookies(header) {
   return Object.fromEntries((header || "").split(";").map((part) => part.trim()).filter(Boolean).map((part) => {
     const index = part.indexOf("=");
-    return index < 0 ? [part, ""] : [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+    if (index < 0) return [part, ""];
+    const name = part.slice(0, index);
+    try {
+      return [name, decodeURIComponent(part.slice(index + 1))];
+    } catch {
+      return [name, ""];
+    }
   }));
 }
 
@@ -646,7 +653,7 @@ async function sendAuthEntryPage(req, res, next) {
 
 app.get(["/login", "/register"], sendAuthEntryPage);
 
-app.use(express.static(publicRoot, {
+const staticFiles = express.static(publicRoot, {
   index: "index.html",
   maxAge: isProduction ? "1h" : 0,
   setHeaders(res, filePath) {
@@ -654,7 +661,20 @@ app.use(express.static(publicRoot, {
       res.setHeader("Cache-Control", "no-store, max-age=0");
     }
   },
-}));
+});
+
+function isPublicAsset(requestPath) {
+  return requestPath === "/"
+    || requestPath === "/index.html"
+    || requestPath === "/app.js"
+    || requestPath === "/styles.css"
+    || requestPath.startsWith("/assets/");
+}
+
+app.use((req, res, next) => {
+  if (["GET", "HEAD"].includes(req.method) && isPublicAsset(req.path)) return staticFiles(req, res, next);
+  return next();
+});
 app.get("*", (_req, res) => res.sendFile(path.join(publicRoot, "index.html")));
 
 // Startup

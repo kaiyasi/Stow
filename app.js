@@ -279,8 +279,7 @@ function showToast(message) {
 function openDialog(dialog) {
   if (!dialog) return;
   if (typeof dialog.showModal === "function") {
-    // /login and /register may arrive with a server-rendered `open` attribute.
-    // Convert that non-modal state into a real modal before showing it.
+    // Normalize server-rendered dialogs before showModal().
     if (dialog.open && typeof dialog.close === "function") dialog.close();
     try {
       dialog.showModal();
@@ -812,7 +811,6 @@ function closeShortcuts() {
   else dialog.removeAttribute("open");
 }
 
-// Navigation filters share one state so the sidebar and toolbar always agree.
 // Event bindings
 $$('[data-filter]').forEach((element) => {
   element.addEventListener("click", () => {

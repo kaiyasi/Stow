@@ -63,14 +63,14 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; }
 ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
-/* The original projects use a scene behind a precise, print-like interface. */
+/* Page frame */
 .main-content { position: relative; z-index: 1; height: 100%; min-height: 0; overflow: hidden; padding-top: 68px; background: var(--bg); }
 .main-content::before { position: fixed; z-index: -2; inset: 68px 0 0; background: linear-gradient(90deg, color-mix(in srgb, var(--bg) 78%, transparent), color-mix(in srgb, var(--bg) 90%, transparent) 35%, color-mix(in srgb, var(--bg) 92%, transparent) 72%, color-mix(in srgb, var(--bg) 76%, transparent)), var(--scene-image) center 44% / cover no-repeat; opacity: .29; filter: saturate(.68) contrast(.97); content: ""; pointer-events: none; transition: background .35s ease; }
 .main-content::after { position: fixed; z-index: -1; inset: 68px 0 0; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--line) 48%, transparent) 25%); opacity: .26; content: ""; pointer-events: none; }
 .app-shell { display: block; height: 100%; min-height: 0; }
 .sidebar { display: none; }
 
-/* Blog-like fixed chrome with the two-colour rule used by Blog and Website. */
+/* Top navigation */
 .topbar { position: fixed; inset: 0 0 auto; z-index: 20; display: flex; height: 68px; align-items: stretch; border-bottom: 1px solid var(--line); color: var(--ink); background: color-mix(in srgb, var(--bg) 88%, transparent); box-shadow: 0 4px 0 color-mix(in srgb, var(--accent-secondary) 15%, transparent); backdrop-filter: blur(16px); }
 .topbar::before, .topbar::after { position: absolute; top: 0; height: 3px; content: ""; pointer-events: none; }
 .topbar::before { left: 0; width: 36%; background: var(--accent); }
@@ -112,7 +112,7 @@ body[data-theme='dark'] .theme-sun { display: none; }
 body[data-theme='dark'] .theme-moon { display: block; }
 .mobile-menu { display: none; }
 
-/* Website-like ticket/workspace frame */
+/* Workspace frame */
 .content-wrap { position: relative; width: min(1160px, 100%); height: 100%; min-height: 0; margin: 0 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--line) transparent; scrollbar-width: thin; padding: 4.6rem 1.5rem 6rem; }
 .content-wrap[hidden] { display: none; }
 .auth-landing { display: flex; width: 100%; height: 100%; min-height: 0; overflow-y: auto; padding: 3rem 1.5rem 4rem; scrollbar-color: var(--line) transparent; scrollbar-width: thin; }
@@ -250,7 +250,7 @@ body[data-theme='dark'] .save-button { color: #10151b; }
 .save-button svg { width: 15px; height: 15px; }
 .save-button:hover { color: var(--accent); background: transparent; transform: translateY(-2px); }
 
-/* Blog archive-like index toolbar */
+/* Library toolbar */
 .library-toolbar { display: flex; min-height: 74px; align-items: center; justify-content: space-between; gap: 20px; padding: 2.2rem 0 .8rem; border-bottom: 1px solid var(--line); }
 .toolbar-caption { display: flex; align-items: baseline; gap: 12px; }
 .toolbar-caption .section-kicker { margin: 0; }
@@ -348,7 +348,7 @@ body[data-theme='dark'] .save-button { color: #10151b; }
 .item-list.grid-view .item-preview { -webkit-line-clamp: 3; }
 .item-list.grid-view .item-footer { justify-content: space-between; }
 
-/* Quick-look panel borrows the Website info-card treatment. */
+/* Detail panel */
 .detail-panel { position: sticky; top: 24px; min-height: 370px; padding: 1.15rem 1rem 1rem; border: 1px solid var(--line); color: var(--ink); background: color-mix(in srgb, var(--panel) 84%, transparent); box-shadow: 6px 6px 0 color-mix(in srgb, var(--accent) 12%, transparent); backdrop-filter: blur(14px); }
 .detail-panel::before { display: block; height: 3px; margin: -1.15rem -1rem 1rem; background: var(--accent-secondary); content: ""; }
 .detail-top { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: .8rem; border-bottom: 1px solid var(--line); }
@@ -384,7 +384,7 @@ body[data-theme='dark'] .detail-copy-button { color: #10151b; }
 .detail-secondary-button:hover, .detail-secondary-button.is-pinned { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
 .detail-secondary-button.danger:hover { color: var(--accent-secondary); border-color: var(--accent-secondary); }
 
-/* Dialog / feedback */
+/* Dialogs and feedback */
 .shortcuts-dialog { width: min(380px, calc(100vw - 32px)); padding: 22px; border: 1px solid var(--line); border-radius: 2px; color: var(--ink); background: var(--panel); box-shadow: var(--shadow); }
 .shortcuts-dialog::backdrop { background: rgba(12, 16, 20, .45); backdrop-filter: blur(3px); }
 .dialog-header { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
@@ -394,7 +394,7 @@ body[data-theme='dark'] .detail-copy-button { color: #10151b; }
 .shortcut-list > div { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font: 400 10px var(--font-mono); }
 .shortcut-list > div > span:last-child { display: flex; gap: 4px; }
 
-/* Account and controlled-share flows. The UI models the access contract; the server must enforce it. */
+/* Account and sharing dialogs */
 .auth-dialog, .share-dialog, .share-gate-dialog, .account-dialog { padding: 0; border: 1px solid var(--line); border-radius: 2px; color: var(--ink); background: var(--panel); box-shadow: var(--shadow); }
 .auth-dialog::backdrop, .share-dialog::backdrop, .share-gate-dialog::backdrop, .account-dialog::backdrop { background: rgba(12, 16, 20, .52); backdrop-filter: blur(5px); }
 .auth-dialog { width: min(760px, calc(100vw - 30px)); max-height: calc(100vh - 30px); overflow: hidden; }

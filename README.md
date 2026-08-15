@@ -97,6 +97,7 @@ the Express server and PostgreSQL connection.
 | --- | --- |
 | `APP_PORT` | HTTP port; defaults to `3000` |
 | `APP_BASE_URL` | Public origin used in sharing and password-reset links |
+| `TRUST_PROXY` | Trust one reverse proxy when set to `true`; production defaults to one trusted proxy |
 | `DATABASE_URL` | PostgreSQL connection string; alternatively use `POSTGRES_*` variables |
 | `POSTGRES_HOST` | PostgreSQL hostname |
 | `POSTGRES_PORT` | PostgreSQL port |
