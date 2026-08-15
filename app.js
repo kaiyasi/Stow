@@ -1023,7 +1023,7 @@ $("#authForm").addEventListener("submit", (event) => {
         $("#authConfirm").value = "";
         $("#termsAccepted").checked = false;
         showToast("帳號已建立 · 請登入 STOW");
-        window.setTimeout(() => $("#authHandle").focus(), 60);
+        window.setTimeout(() => $("#authPassword").focus(), 60);
         return;
       }
       const pendingShareId = state.pendingShareId;
