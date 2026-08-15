@@ -12,11 +12,11 @@ node_modules/
 *.pem
 *.key
 
-# Keep GitLab-specific automation outside the source repository.
+# Keep CI and platform-specific automation outside the source repository.
 .gitlab/
 .gitlab-ci.yml
 
-# Keep Serelix/GitLab deployment files outside the canonical source tree.
+# Keep deployment templates outside the canonical source tree.
 .platform/
 Dockerfile
 service.config.yml
