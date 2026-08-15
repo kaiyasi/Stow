@@ -441,6 +441,7 @@ async function sendPasswordResetEmail(req, gmail, token) {
     console.info(`[STOW development] password reset URL for ${gmail}: ${url}`);
     return;
   }
+  const resetEmailImage = await readFile(path.join(publicRoot, "assets", "email-reset-bg.png"));
   await mailTransporter.sendMail({
     from: process.env.SMTP_FROM || "STOW <no-reply@localhost>",
     to: gmail,
@@ -449,7 +450,7 @@ async function sendPasswordResetEmail(req, gmail, token) {
     html: passwordResetEmailHTML(url),
     attachments: [{
       filename: "stow-reset-background.png",
-      path: path.join(publicRoot, "assets", "email-reset-bg.png"),
+      content: resetEmailImage,
       cid: "stow-reset-bg@stow",
       contentDisposition: "inline",
     }],
