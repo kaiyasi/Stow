@@ -1005,8 +1005,8 @@ $("#authForm").addEventListener("submit", (event) => {
       confirm.setCustomValidity("");
       return;
     }
-    if (registering && (!state.legalRead.terms || !state.legalRead.privacy)) {
-      showToast("請先查看服務條款與隱私政策");
+    if (registering && !$("#termsAccepted").checked) {
+      showToast("請勾選並同意服務條款與隱私政策");
       return;
     }
     const handle = $("#authHandle").value.trim();
