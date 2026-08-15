@@ -122,4 +122,5 @@ Never commit a production `.env` file to the canonical source repository.
 
 ## License
 
-No open-source license has been declared yet.
+STOW is released under the MIT License. See [LICENSE](LICENSE) for the full
+license text.
