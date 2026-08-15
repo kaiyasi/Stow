@@ -1,6 +1,50 @@
-const STORAGE_KEY = "stow-clipboard-items-v1";
-const AUTH_COOKIE_KEY = "stow-session-v1";
-const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const API_ROOT = "/api";
+let csrfToken = "";
+let csrfPromise = null;
+let passwordResetToken = "";
+
+class StowApiError extends Error {
+  constructor(status, data = {}) {
+    super(data.message || "STOW 要求失敗");
+    this.name = "StowApiError";
+    this.status = status;
+    this.code = data.code || "SERVER_ERROR";
+    this.data = data;
+  }
+}
+
+async function loadCsrfToken() {
+  if (csrfPromise) return csrfPromise;
+  csrfPromise = (async () => {
+    const response = await fetch(`${API_ROOT}/csrf`, { credentials: "same-origin", headers: { Accept: "application/json" } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.csrfToken) throw new StowApiError(response.status, data);
+    csrfToken = data.csrfToken;
+    return csrfToken;
+  })();
+  try {
+    return await csrfPromise;
+  } finally {
+    csrfPromise = null;
+  }
+}
+
+async function api(path, options = {}) {
+  const method = String(options.method || "GET").toUpperCase();
+  if (!csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)) await loadCsrfToken();
+  const headers = new Headers(options.headers || {});
+  headers.set("Accept", "application/json");
+  let body = options.body;
+  if (body !== undefined && !(body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+    body = JSON.stringify(body);
+  }
+  if (csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)) headers.set("X-CSRF-Token", csrfToken);
+  const response = await fetch(`${API_ROOT}${path}`, { ...options, method, headers, body, credentials: "same-origin" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new StowApiError(response.status, data);
+  return data;
+}
 
 const seedItems = [
   {
@@ -126,20 +170,22 @@ const seedItems = [
 ];
 
 const state = {
-  items: loadItems(),
+  items: [],
   filter: "all",
   query: "",
   visible: 6,
-  selectedId: "seed-1",
+  selectedId: null,
   captureMode: "clip",
   editingId: null,
   gridView: false,
   sort: "recent",
-  authenticated: Boolean(loadAuthHandle()),
-  authHandle: loadAuthHandle(),
-  authGmail: loadAuthGmail(),
+  authenticated: false,
+  authHandle: "",
+  authGmail: "",
   pendingShareId: null,
   shareItemId: null,
+  shareToken: null,
+  sharedItem: null,
   shareAccess: "recipient",
   legalReturnToAuth: false,
   legalRead: { terms: false, privacy: false },
@@ -151,7 +197,7 @@ const legalDocuments = {
     title: "服務條款",
     intro: "STOW 是一個用來保存個人文字、連結、程式碼與記事的跨裝置工具。使用 STOW 前，請先了解以下使用規則。",
     sections: [
-      ["01 / 服務內容", "STOW 提供內容保存、搜尋、跨裝置同步與分享連結功能。展示版的資料只保存在目前瀏覽器；正式服務會依帳號與方案提供不同的儲存及同步能力。"],
+      ["01 / 服務內容", "STOW 提供內容保存、搜尋、跨裝置同步與分享連結功能。帳號資料與內容會由服務端依帳號保存，服務可依實際部署狀態調整儲存與同步能力。"],
       ["02 / 你的內容", "你保留自己上傳內容的權利，也需要確保自己有權保存與分享這些內容。請不要上傳違法、侵害他人權利、或你沒有權限保存的機密資料。"],
       ["03 / 分享連結", "內容預設只對本人可見。當你建立指定對象連結時，只有通過指定帳號驗證的人可以讀取；當你選擇持有連結者模式時，任何取得連結的人都可能查看內容。你可以在正式版本中隨時撤銷分享連結。"],
       ["04 / 帳號與安全", "請保護帳號名稱與密碼，不要把登入資訊交給他人。註冊時提供的 Gmail 只用於密碼重設；若發現帳號遭到未授權使用，請盡快聯絡 STOW 管理者。"],
@@ -164,11 +210,11 @@ const legalDocuments = {
     title: "隱私政策",
     intro: "我們希望你知道 STOW 會收集什麼、為什麼需要它，以及分享內容時資料會如何流動。這是一份產品草案，正式上線前會再經過法律審閱。",
     sections: [
-      ["01 / 我們可能收集的資料", "包含帳號名稱、註冊時提供的 Gmail、你保存的內容與標籤、裝置名稱、同步時間，以及為了維護服務所需的基本技術紀錄。展示版目前主要使用瀏覽器 localStorage。"],
+      ["01 / 我們可能收集的資料", "包含帳號名稱、註冊時提供的 Gmail、你保存的內容與標籤、裝置名稱、同步時間，以及為了維護服務所需的基本技術紀錄。內容會保存於服務端資料庫，不以瀏覽器 localStorage 作為帳號或內容的正式儲存。"],
       ["02 / 使用目的", "資料會用來提供登入、跨裝置同步、內容搜尋、備份、安全防護、分享連結與密碼重設功能。我們不會為了廣告目的讀取你的剪貼簿內容。"],
       ["03 / 分享時會發生什麼", "只有你主動建立分享連結後，內容才會提供給其他人。指定對象模式會綁定收件者帳號；公開連結模式則代表取得連結的人可以查看。"],
       ["04 / 保存與刪除", "正式服務會提供內容匯出、刪除分享連結與刪除帳號的方式。刪除後的備份資料可能因安全與系統週期短暫保留，確切期限會在正式政策中說明。"],
-      ["05 / 資料安全", "我們會使用傳輸加密、帳號驗證與權限檢查降低未授權存取風險；但任何網路服務都不能保證絕對不會發生安全事件。"],
+      ["05 / 資料安全", "我們會使用 HTTPS、密碼雜湊、HttpOnly Session、CSRF 驗證、限流與伺服器端權限檢查降低未授權存取風險；但任何網路服務都不能保證絕對不會發生安全事件。"],
       ["06 / 聯絡與更新", "若你對資料使用、刪除或分享權限有疑問，可以透過服務提供的聯絡方式提出要求。政策更新時，會在此文件標示新的更新日期。"],
     ],
   },
@@ -176,27 +222,6 @@ const legalDocuments = {
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
-
-function loadItems() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-    }
-  } catch (error) {
-    console.warn("Unable to load local STOW data", error);
-  }
-  return structuredClone(seedItems);
-}
-
-function persistItems() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
-  } catch (error) {
-    console.warn("Unable to save local STOW data", error);
-  }
-}
 
 function escapeHTML(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -226,39 +251,6 @@ function inferType(content) {
   if (/^(https?:\/\/|www\.)/i.test(text)) return "link";
   if (/^(git |npm |const |let |function |import |export |SELECT |<\/?[a-z])/im.test(text) || /[{};]\s*$/m.test(text)) return "code";
   return "clip";
-}
-
-function readCookie(name) {
-  const prefix = `${encodeURIComponent(name)}=`;
-  const cookie = document.cookie.split("; ").find((entry) => entry.startsWith(prefix));
-  if (!cookie) return "";
-  try {
-    return decodeURIComponent(cookie.slice(prefix.length));
-  } catch (error) {
-    return "";
-  }
-}
-
-function persistAuthCookie(handle) {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${encodeURIComponent(AUTH_COOKIE_KEY)}=${encodeURIComponent(handle)}; Max-Age=${AUTH_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`;
-}
-
-function clearAuthCookie() {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${encodeURIComponent(AUTH_COOKIE_KEY)}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
-}
-
-function loadAuthHandle() {
-  return readCookie(AUTH_COOKIE_KEY);
-}
-
-function loadAuthGmail() {
-  try {
-    return localStorage.getItem("stow-auth-gmail-v1") || "";
-  } catch (error) {
-    return "";
-  }
 }
 
 function getFilteredItems() {
@@ -426,6 +418,7 @@ function closeAuthDialog() {
 }
 
 function openPasswordResetDialog() {
+  setPasswordResetMode("request");
   $("#resetGmail").value = state.authGmail || "";
   closeDialog($("#authDialog"));
   openDialog($("#passwordResetDialog"));
@@ -434,6 +427,18 @@ function openPasswordResetDialog() {
 
 function closePasswordResetDialog() {
   closeDialog($("#passwordResetDialog"));
+}
+
+function setPasswordResetMode(mode) {
+  const confirming = mode === "confirm";
+  $("#passwordResetRequestView").hidden = confirming;
+  $("#passwordResetConfirmView").hidden = !confirming;
+  if (!confirming) {
+    $("#resetGmail").value = state.authGmail || "";
+  } else {
+    $("#resetNewPassword").value = "";
+    $("#resetNewPasswordConfirm").value = "";
+  }
 }
 
 function closeShareDialog() {
@@ -522,13 +527,38 @@ function renderAccessState() {
   content.inert = locked;
 }
 
+function apiErrorMessage(error, fallback = "目前無法完成這個動作") {
+  if (!(error instanceof StowApiError)) return fallback;
+  const messages = {
+    DATABASE_UNAVAILABLE: "服務資料庫目前尚未就緒，請稍後再試",
+    INVALID_CREDENTIALS: "帳號名稱或密碼不正確",
+    HANDLE_TAKEN: "這個帳號名稱已被使用",
+    GMAIL_TAKEN: "這個 Gmail 已被其他帳號使用",
+    RECIPIENT_NOT_FOUND: "找不到指定的帳號",
+    SHARE_FORBIDDEN: "你沒有權限查看這則內容",
+    SHARE_NOT_FOUND: "這條分享連結不存在或已撤銷",
+    ITEM_NOT_FOUND: "找不到這則內容，可能已被刪除",
+    CURRENT_PASSWORD_INVALID: "目前密碼不正確",
+    RESET_INVALID: "重設密碼連結無效或已過期",
+    RESET_UNAVAILABLE: "密碼重設信件服務尚未設定，請聯絡管理者",
+    CSRF_INVALID: "安全驗證已失效，請重新整理頁面",
+    RATE_LIMITED: "嘗試次數過多，請稍後再試",
+  };
+  return messages[error.code] || error.message || fallback;
+}
+
+function showApiError(error, fallback) {
+  console.error("STOW API error", error);
+  showToast(apiErrorMessage(error, fallback));
+}
+
 function renderAccountDialog() {
   const handle = state.authHandle || "nickname";
   $("#accountAvatarLetter").textContent = handle.slice(0, 1).toUpperCase();
   $("#accountHandleTitle").textContent = `@${handle}`;
   $("#accountGmailValue").textContent = state.authGmail || "尚未設定";
   $("#accountGmailInput").value = state.authGmail || "";
-  $("#accountSessionStatus").textContent = "SESSION / 1 YEAR · SYNC READY";
+  $("#accountSessionStatus").textContent = "HTTPONLY SESSION / 1 YEAR · SYNC READY";
 }
 
 function setAccountPanel(panel = null) {
@@ -560,18 +590,34 @@ function closeAccountDialog() {
   closeDialog($("#accountDialog"));
 }
 
-function setAuthenticated(handle, gmail = state.authGmail || "") {
-  state.authenticated = true;
-  state.authHandle = handle;
-  state.authGmail = gmail;
-  try {
-    persistAuthCookie(handle);
-    if (gmail) localStorage.setItem("stow-auth-gmail-v1", gmail);
-  } catch (error) {
-    console.warn("Unable to save STOW auth state", error);
-  }
+function setAuthenticated(user, items = state.items) {
+  state.authenticated = Boolean(user);
+  state.authHandle = user?.handle || "";
+  state.authGmail = user?.gmail || "";
+  if (Array.isArray(items)) state.items = items;
+  state.selectedId = state.items[0]?.id || null;
   renderAuthUI();
   renderAccessState();
+  render();
+}
+
+function clearAuthenticatedUser() {
+  state.authenticated = false;
+  state.authHandle = "";
+  state.authGmail = "";
+  state.items = [];
+  state.selectedId = null;
+  state.pendingShareId = null;
+  renderAuthUI();
+  renderAccessState();
+  render();
+}
+
+async function refreshItems() {
+  const data = await api("/items");
+  state.items = Array.isArray(data.items) ? data.items : [];
+  if (!state.items.some((item) => item.id === state.selectedId)) state.selectedId = state.items[0]?.id || null;
+  render();
 }
 
 function setAuthMode(mode) {
@@ -613,15 +659,6 @@ function openAuthDialog(pendingShareId = null) {
   window.setTimeout(() => $("#authHandle").focus(), 60);
 }
 
-function buildShareURL(item, access) {
-  const url = new URL(window.location.href);
-  url.search = "";
-  url.hash = "";
-  url.searchParams.set("share", item.id);
-  url.searchParams.set("access", access);
-  return url.toString();
-}
-
 function updateShareAccess() {
   const access = $("input[name='shareAccess']:checked")?.value || "recipient";
   state.shareAccess = access;
@@ -655,20 +692,18 @@ function openShareDialog(item) {
   openDialog($("#shareDialog"));
 }
 
-function openShareGateFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  const itemId = params.get("share");
-  if (!itemId) return;
-  const item = state.items.find((candidate) => candidate.id === itemId);
-  if (!item) {
-    showToast("這條分享連結在目前裝置上找不到內容");
-    return;
-  }
+function renderSharedPreview(item) {
+  if (!item) return;
+  $("#sharedPreviewTitle").textContent = item.title || "STOW 內容";
+  $("#sharedPreviewMeta").textContent = `${typeMeta(item.type).label} · ${item.timeLabel || "剛剛"}`;
+  $("#sharedPreviewContent").textContent = item.content || "";
+  state.sharedItem = item;
+  openDialog($("#sharedPreviewDialog"));
+}
 
-  state.shareItemId = item.id;
-  state.shareAccess = params.get("access") === "link" ? "link" : "recipient";
-  state.selectedId = item.id;
-  $("#shareGateItemTitle").textContent = item.title || "STOW 內容";
+function configureShareGate(access, title = "STOW 內容") {
+  state.shareAccess = access === "link" ? "link" : "recipient";
+  $("#shareGateItemTitle").textContent = title || "STOW 內容";
   $("#shareGateHandle").value = "";
   $("#shareGatePassword").value = "";
   $("#shareGateHandleField").hidden = state.shareAccess === "link";
@@ -680,6 +715,23 @@ function openShareGateFromURL() {
     ? "任何拿到這條連結的人都可以查看這則內容。"
     : "這條連結只開放給指定的帳號。請使用帳號名稱與密碼登入。";
   openDialog($("#shareGateDialog"));
+}
+
+async function openShareGateFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("share");
+  if (!token) return;
+  state.shareToken = token;
+  try {
+    const data = await api(`/shares/${encodeURIComponent(token)}`);
+    renderSharedPreview(data.item);
+  } catch (error) {
+    if (error instanceof StowApiError && error.code === "AUTH_REQUIRED") {
+      configureShareGate(error.data.access, error.data.title);
+      return;
+    }
+    showApiError(error, "無法開啟這條分享連結");
+  }
 }
 
 function clearShareURL() {
@@ -713,22 +765,29 @@ async function copyItem(item) {
   showToast(copied ? "已複製到剪貼簿" : "瀏覽器阻擋了複製，請手動選取");
 }
 
-function togglePin(item) {
-  item.pinned = !item.pinned;
-  item.updatedAt = Date.now();
-  item.timeLabel = "剛剛";
-  persistItems();
-  render();
-  showToast(item.pinned ? "已釘選這則內容" : "已取消釘選");
+async function togglePin(item) {
+  try {
+    const data = await api(`/items/${encodeURIComponent(item.id)}`, { method: "PATCH", body: { pinned: !item.pinned } });
+    const index = state.items.findIndex((candidate) => candidate.id === item.id);
+    if (index >= 0) state.items[index] = data.item;
+    render();
+    showToast(data.item.pinned ? "已釘選這則內容" : "已取消釘選");
+  } catch (error) {
+    showApiError(error, "無法更新釘選狀態");
+  }
 }
 
-function deleteItem(item) {
+async function deleteItem(item) {
   if (!window.confirm(`確定要刪除「${item.title || "未命名內容"}」嗎？`)) return;
-  state.items = state.items.filter((candidate) => candidate.id !== item.id);
-  state.selectedId = state.items[0]?.id || null;
-  persistItems();
-  render();
-  showToast("內容已刪除");
+  try {
+    await api(`/items/${encodeURIComponent(item.id)}`, { method: "DELETE" });
+    state.items = state.items.filter((candidate) => candidate.id !== item.id);
+    state.selectedId = state.items[0]?.id || null;
+    render();
+    showToast("內容已刪除");
+  } catch (error) {
+    showApiError(error, "無法刪除這則內容");
+  }
 }
 
 function editItem(item) {
@@ -754,7 +813,7 @@ function resetComposer() {
   updateCharCount();
 }
 
-function saveEntry() {
+async function saveEntry() {
   if (!state.authenticated) {
     showToast("登入後才能保存內容");
     openAuthDialog();
@@ -773,23 +832,25 @@ function saveEntry() {
   const inferredTitle = type === "link" ? "稍後閱讀的連結" : type === "code" ? "新的程式碼片段" : content.split("\n")[0].slice(0, 38);
   const title = titleInput || inferredTitle || "未命名內容";
 
-  if (state.editingId) {
-    const existing = state.items.find((item) => item.id === state.editingId);
-    if (existing) {
-      Object.assign(existing, { type, title, content, tags, timeLabel: "剛剛", updatedAt: Date.now() });
-      state.selectedId = existing.id;
+  try {
+    const payload = { type, title, content, tags, device: "此裝置", collection: state.captureMode === "note" ? "personal" : "work" };
+    if (state.editingId) {
+      const data = await api(`/items/${encodeURIComponent(state.editingId)}`, { method: "PATCH", body: payload });
+      const index = state.items.findIndex((item) => item.id === state.editingId);
+      if (index >= 0) state.items[index] = data.item;
+      state.selectedId = data.item.id;
       showToast("內容已更新");
+    } else {
+      const data = await api("/items", { method: "POST", body: payload });
+      state.items.unshift(data.item);
+      state.selectedId = data.item.id;
+      showToast("已收進你的 STOW");
     }
-  } else {
-    const newItem = { id: `item-${Date.now()}`, type, title, content, tags, device: "此裝置", timeLabel: "剛剛", updatedAt: Date.now(), pinned: false, collection: state.captureMode === "note" ? "personal" : "work" };
-    state.items.unshift(newItem);
-    state.selectedId = newItem.id;
-    showToast("已收進你的 STOW");
+    resetComposer();
+    render();
+  } catch (error) {
+    showApiError(error, "無法保存內容");
   }
-
-  persistItems();
-  resetComposer();
-  render();
 }
 
 function setCaptureMode(mode) {
@@ -932,99 +993,117 @@ $("#cancelPassword").addEventListener("click", () => setAccountPanel());
 
 $("#authForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const form = event.currentTarget;
-  const registering = form.dataset.authMode === "register";
-  const password = $("#authPassword");
-  const confirm = $("#authConfirm");
-  confirm.setCustomValidity(registering && password.value !== confirm.value ? "兩次輸入的密碼不一致" : "");
-  if (!form.reportValidity()) {
-    confirm.setCustomValidity("");
-    return;
-  }
-  if (registering && (!state.legalRead.terms || !state.legalRead.privacy)) {
-    showToast("請先查看服務條款與隱私政策");
-    return;
-  }
-  const handle = $("#authHandle").value.trim();
-  const gmail = $("#authGmail").value.trim();
-  if (registering) {
-    state.authHandle = handle;
-    state.authGmail = gmail;
-    try {
-      localStorage.setItem("stow-auth-gmail-v1", gmail);
-    } catch (error) {
-      console.warn("Unable to save STOW recovery email", error);
+  void (async () => {
+    const form = event.currentTarget;
+    const registering = form.dataset.authMode === "register";
+    const password = $("#authPassword");
+    const confirm = $("#authConfirm");
+    confirm.setCustomValidity(registering && password.value !== confirm.value ? "兩次輸入的密碼不一致" : "");
+    if (!form.reportValidity()) {
+      confirm.setCustomValidity("");
+      return;
     }
-    setAuthMode("login");
-    $("#authHandle").value = handle;
-    $("#authPassword").value = "";
-    $("#authConfirm").value = "";
-    $("#termsAccepted").checked = false;
-    showToast("帳號已建立 · 請登入 STOW");
-    window.setTimeout(() => $("#authHandle").focus(), 60);
-    return;
-  }
-  const pendingShareId = state.pendingShareId;
-  setAuthenticated(handle, state.authGmail);
-  state.pendingShareId = null;
-  closeDialog($("#authDialog"));
-  showToast("已登入 STOW · 同步已開啟");
-  if (pendingShareId) {
-    window.setTimeout(() => openShareDialog(state.items.find((item) => item.id === pendingShareId)), 120);
-  }
+    if (registering && (!state.legalRead.terms || !state.legalRead.privacy)) {
+      showToast("請先查看服務條款與隱私政策");
+      return;
+    }
+    const handle = $("#authHandle").value.trim();
+    const gmail = $("#authGmail").value.trim();
+    try {
+      if (registering) {
+        await api("/auth/register", {
+          method: "POST",
+          body: { handle, gmail, password: password.value, termsAccepted: true, privacyAccepted: true },
+        });
+        state.authHandle = handle.toLowerCase();
+        state.authGmail = gmail.toLowerCase();
+        setAuthMode("login");
+        $("#authHandle").value = handle;
+        $("#authPassword").value = "";
+        $("#authConfirm").value = "";
+        $("#termsAccepted").checked = false;
+        showToast("帳號已建立 · 請登入 STOW");
+        window.setTimeout(() => $("#authHandle").focus(), 60);
+        return;
+      }
+      const pendingShareId = state.pendingShareId;
+      const data = await api("/auth/login", { method: "POST", body: { handle, password: password.value } });
+      setAuthenticated(data.user, []);
+      await refreshItems();
+      state.pendingShareId = null;
+      closeDialog($("#authDialog"));
+      showToast("已登入 STOW · 同步已開啟");
+      if (pendingShareId) {
+        window.setTimeout(() => openShareDialog(state.items.find((item) => item.id === pendingShareId)), 120);
+      }
+    } catch (error) {
+      showApiError(error, registering ? "無法建立帳號" : "無法登入 STOW");
+    } finally {
+      confirm.setCustomValidity("");
+    }
+  })();
 });
 
 $("#gmailPanel").addEventListener("submit", (event) => {
   event.preventDefault();
-  const input = $("#accountGmailInput");
-  if (!input.checkValidity()) {
-    input.reportValidity();
-    return;
-  }
-  state.authGmail = input.value.trim();
-  try {
-    localStorage.setItem("stow-auth-gmail-v1", state.authGmail);
-  } catch (error) {
-    console.warn("Unable to save STOW recovery email", error);
-  }
-  renderAccountDialog();
-  setAccountPanel();
-  showToast("Gmail 已更新 · 可用於密碼重設");
+  void (async () => {
+    const input = $("#accountGmailInput");
+    if (!input.checkValidity()) {
+      input.reportValidity();
+      return;
+    }
+    try {
+      const data = await api("/me", { method: "PATCH", body: { gmail: input.value.trim() } });
+      setAuthenticated(data.user);
+      setAccountPanel();
+      renderAccountDialog();
+      showToast("Gmail 已更新 · 可用於密碼重設");
+    } catch (error) {
+      showApiError(error, "無法更新 Gmail");
+    }
+  })();
 });
 
 $("#passwordPanel").addEventListener("submit", (event) => {
   event.preventDefault();
-  const form = event.currentTarget;
-  const password = $("#newPassword");
-  const confirm = $("#newPasswordConfirm");
-  confirm.setCustomValidity(password.value !== confirm.value ? "兩次輸入的新密碼不一致" : "");
-  if (!form.reportValidity()) {
-    confirm.setCustomValidity("");
-    return;
-  }
-  confirm.setCustomValidity("");
-  setAccountPanel();
-  $("#currentPassword").value = "";
-  $("#newPassword").value = "";
-  $("#newPasswordConfirm").value = "";
-  showToast("密碼已更新 · 下次登入會套用");
+  void (async () => {
+    const form = event.currentTarget;
+    const password = $("#newPassword");
+    const confirm = $("#newPasswordConfirm");
+    confirm.setCustomValidity(password.value !== confirm.value ? "兩次輸入的新密碼不一致" : "");
+    if (!form.reportValidity()) {
+      confirm.setCustomValidity("");
+      return;
+    }
+    try {
+      const data = await api("/me/password", {
+        method: "PATCH",
+        body: { currentPassword: $("#currentPassword").value, newPassword: password.value },
+      });
+      setAccountPanel();
+      $("#currentPassword").value = "";
+      $("#newPassword").value = "";
+      $("#newPasswordConfirm").value = "";
+      showToast(data.message || "密碼已更新");
+    } catch (error) {
+      showApiError(error, "無法更新密碼");
+    } finally {
+      confirm.setCustomValidity("");
+    }
+  })();
 });
 
 $("#accountLogout").addEventListener("click", () => {
-  state.authenticated = false;
-  state.authHandle = "";
-  state.authGmail = "";
-  state.pendingShareId = null;
-  clearAuthCookie();
-  try {
-    localStorage.removeItem("stow-auth-gmail-v1");
-  } catch (error) {
-    console.warn("Unable to clear STOW recovery email", error);
-  }
-  closeAccountDialog();
-  renderAuthUI();
-  renderAccessState();
-  showToast("已登出 STOW");
+  void (async () => {
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.warn("Unable to revoke STOW session", error);
+    }
+    closeAccountDialog();
+    clearAuthenticatedUser();
+    showToast("已登出 STOW");
+  })();
 });
 
 $("#forgotPasswordButton").addEventListener("click", openPasswordResetDialog);
@@ -1036,21 +1115,49 @@ $("#backToAuth").addEventListener("click", () => {
 
 $("#passwordResetForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const gmail = $("#resetGmail");
-  if (!gmail.checkValidity()) {
-    gmail.reportValidity();
-    return;
-  }
-  state.authGmail = gmail.value.trim();
-  try {
-    localStorage.setItem("stow-auth-gmail-v1", state.authGmail);
-  } catch (error) {
-    console.warn("Unable to save STOW recovery email", error);
-  }
-  const pendingShareId = state.pendingShareId;
-  closePasswordResetDialog();
-  openAuthDialog(pendingShareId);
-  showToast("若帳號存在，重設密碼連結已寄出");
+  void (async () => {
+    const gmail = $("#resetGmail");
+    if (!gmail.checkValidity()) {
+      gmail.reportValidity();
+      return;
+    }
+    try {
+      const data = await api("/auth/password-reset/request", { method: "POST", body: { gmail: gmail.value.trim() } });
+      closePasswordResetDialog();
+      openAuthDialog(state.pendingShareId);
+      showToast(data.message || "若帳號存在，重設密碼連結已寄出");
+    } catch (error) {
+      showApiError(error, "無法寄送重設密碼連結");
+    }
+  })();
+});
+
+$("#passwordResetConfirmForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  void (async () => {
+    const form = event.currentTarget;
+    const password = $("#resetNewPassword");
+    const confirm = $("#resetNewPasswordConfirm");
+    confirm.setCustomValidity(password.value !== confirm.value ? "兩次輸入的新密碼不一致" : "");
+    if (!form.reportValidity()) {
+      confirm.setCustomValidity("");
+      return;
+    }
+    try {
+      const data = await api("/auth/password-reset/confirm", {
+        method: "POST",
+        body: { token: passwordResetToken, password: password.value },
+      });
+      closePasswordResetDialog();
+      clearShareURL();
+      openAuthDialog();
+      showToast(data.message || "密碼已重設，請重新登入");
+    } catch (error) {
+      showApiError(error, "無法重設密碼");
+    } finally {
+      confirm.setCustomValidity("");
+    }
+  })();
 });
 
 $("#signupButton").addEventListener("click", () => {
@@ -1073,21 +1180,36 @@ bindDialogBackdrop($("#passwordResetDialog"), closePasswordResetDialog);
 bindDialogBackdrop($("#legalDialog"), closeLegalDialog);
 bindDialogBackdrop($("#shareDialog"), closeShareDialog);
 bindDialogBackdrop($("#shareGateDialog"), closeShareGateDialog);
+bindDialogBackdrop($("#sharedPreviewDialog"), () => {
+  closeDialog($("#sharedPreviewDialog"));
+  clearShareURL();
+});
 
 $$('input[name="shareAccess"]').forEach((input) => input.addEventListener("change", updateShareAccess));
 $("#shareForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const item = state.items.find((candidate) => candidate.id === state.shareItemId);
-  if (!item) return;
-  const handle = $("#shareHandle");
-  if (state.shareAccess === "recipient" && !handle.checkValidity()) {
-    handle.reportValidity();
-    return;
-  }
-  $("#shareLink").value = buildShareURL(item, state.shareAccess);
-  $("#generatedShare").hidden = false;
-  $("#generateShare span").textContent = "更新分享連結";
-  showToast(state.shareAccess === "recipient" ? "已建立指定對象分享連結" : "已建立公開分享連結");
+  void (async () => {
+    const item = state.items.find((candidate) => candidate.id === state.shareItemId);
+    if (!item) return;
+    const handle = $("#shareHandle");
+    if (state.shareAccess === "recipient" && !handle.checkValidity()) {
+      handle.reportValidity();
+      return;
+    }
+    try {
+      const data = await api("/shares", {
+        method: "POST",
+        body: { itemId: item.id, access: state.shareAccess, recipientHandle: handle.value.trim() },
+      });
+      state.shareToken = data.token;
+      $("#shareLink").value = data.url;
+      $("#generatedShare").hidden = false;
+      $("#generateShare span").textContent = "重新建立分享連結";
+      showToast(state.shareAccess === "recipient" ? "已建立指定對象分享連結" : "已建立公開分享連結");
+    } catch (error) {
+      showApiError(error, "無法建立分享連結");
+    }
+  })();
 });
 $("#copyShareLink").addEventListener("click", async () => {
   const copied = await copyText($("#shareLink").value);
@@ -1095,38 +1217,67 @@ $("#copyShareLink").addEventListener("click", async () => {
 });
 $("#closeShare").addEventListener("click", closeShareDialog);
 $("#cancelShare").addEventListener("click", closeShareDialog);
+$("#closeSharedPreview").addEventListener("click", () => {
+  closeDialog($("#sharedPreviewDialog"));
+  clearShareURL();
+});
+$("#sharedPreviewDone").addEventListener("click", () => {
+  closeDialog($("#sharedPreviewDialog"));
+  clearShareURL();
+});
+$("#sharedPreviewCopy").addEventListener("click", async () => {
+  if (!state.sharedItem) return;
+  const copied = await copyText(state.sharedItem.content);
+  showToast(copied ? "內容已複製" : "請手動選取內容");
+});
 
 $("#shareGateForm").addEventListener("submit", (event) => {
   event.preventDefault();
-  const handle = $("#shareGateHandle");
-  const password = $("#shareGatePassword");
-  if (state.shareAccess !== "link") {
-    if (!handle.checkValidity()) {
-      handle.reportValidity();
-      return;
+  void (async () => {
+    try {
+      if (state.shareAccess !== "link") {
+        const handle = $("#shareGateHandle");
+        const password = $("#shareGatePassword");
+        if (!handle.checkValidity()) {
+          handle.reportValidity();
+          return;
+        }
+        if (!password.checkValidity()) {
+          password.reportValidity();
+          return;
+        }
+        const login = await api("/auth/login", { method: "POST", body: { handle: handle.value.trim(), password: password.value } });
+        setAuthenticated(login.user, []);
+        await refreshItems();
+      }
+      const data = await api(`/shares/${encodeURIComponent(state.shareToken || "")}`);
+      closeShareGateDialog();
+      renderSharedPreview(data.item);
+      showToast("已開啟分享內容");
+    } catch (error) {
+      showApiError(error, "無法開啟分享內容");
     }
-    if (!password.checkValidity()) {
-      password.reportValidity();
-      return;
-    }
-    setAuthenticated(handle.value.trim());
-  }
-  closeShareGateDialog();
-  selectItem(state.shareItemId);
-  showToast(state.shareAccess === "link" ? "已開啟分享內容" : "已登入 · 開啟分享內容");
+  })();
 });
 
 $("#syncButton").addEventListener("click", () => {
-  if (!state.authenticated) {
-    showToast("登入後才能啟用跨裝置同步");
-    openAuthDialog();
-    return;
-  }
-  const button = $("#syncButton");
-  button.classList.remove("is-spinning");
-  void button.offsetWidth;
-  button.classList.add("is-spinning");
-  setTimeout(() => showToast("已完成同步 · 3 台裝置"), 450);
+  void (async () => {
+    if (!state.authenticated) {
+      showToast("登入後才能啟用跨裝置同步");
+      openAuthDialog();
+      return;
+    }
+    const button = $("#syncButton");
+    button.classList.remove("is-spinning");
+    void button.offsetWidth;
+    button.classList.add("is-spinning");
+    try {
+      await refreshItems();
+      setTimeout(() => showToast(`已完成同步 · ${state.items.length} 則內容`), 450);
+    } catch (error) {
+      showApiError(error, "同步失敗，請稍後再試");
+    }
+  })();
 });
 
 $("#mobileMenu").addEventListener("click", () => toggleMobileMenu());
@@ -1175,22 +1326,8 @@ document.addEventListener("keydown", (event) => {
     }
     closeDialog($("#shareDialog"));
     closeDialog($("#shareGateDialog"));
+    closeDialog($("#sharedPreviewDialog"));
     toggleMobileMenu(false);
-  }
-});
-
-window.addEventListener("storage", (event) => {
-  if (event.key !== STORAGE_KEY || !event.newValue) return;
-  try {
-    const incoming = JSON.parse(event.newValue);
-    if (Array.isArray(incoming)) {
-      state.items = incoming;
-      state.selectedId = state.items[0]?.id || null;
-      render();
-      showToast("已從其他分頁同步");
-    }
-  } catch (error) {
-    console.warn("Unable to sync local STOW data", error);
   }
 });
 
@@ -1208,4 +1345,30 @@ render();
 renderAuthUI();
 renderAccessState();
 renderLegalDocument("terms");
-openShareGateFromURL();
+
+async function openPasswordResetFromURL() {
+  const token = new URLSearchParams(window.location.search).get("reset");
+  if (!token) return false;
+  passwordResetToken = token;
+  clearShareURL();
+  setPasswordResetMode("confirm");
+  openDialog($("#passwordResetDialog"));
+  window.setTimeout(() => $("#resetNewPassword").focus(), 60);
+  return true;
+}
+
+async function bootstrap() {
+  try {
+    await loadCsrfToken();
+    const session = await api("/me");
+    if (session.user) {
+      setAuthenticated(session.user, []);
+      await refreshItems();
+    }
+  } catch (error) {
+    showApiError(error, "目前無法連線到 STOW 服務");
+  }
+  if (!(await openPasswordResetFromURL())) await openShareGateFromURL();
+}
+
+void bootstrap();

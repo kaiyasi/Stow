@@ -3,6 +3,7 @@
 .idea/
 .vscode/
 *.log
+node_modules/
 
 # Secrets and local environment files
 .env
@@ -14,3 +15,10 @@
 # Keep GitLab-specific automation outside the source repository.
 .gitlab/
 .gitlab-ci.yml
+
+# Keep Serelix/GitLab deployment files outside the canonical source tree.
+.platform/
+Dockerfile
+service.config.yml
+docker-compose.template.yml
+STOW-README.md

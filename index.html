@@ -285,12 +285,12 @@
           <p class="auth-intro" id="authIntro">登入後才能啟用跨裝置同步，也能建立只開放給特定對象的分享連結。</p>
           <label class="auth-field"><span>HANDLE / 帳號名稱</span><input id="authHandle" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" placeholder="kei" required /></label>
           <label class="auth-field" id="authGmailField" hidden><span>GMAIL / Gmail 帳號</span><input id="authGmail" type="email" autocomplete="email" placeholder="name@gmail.com" pattern="^[^\s@]+@gmail\.com$" title="請輸入 Gmail 帳號" /></label>
-          <label class="auth-field"><span>PASSWORD / 密碼</span><input id="authPassword" type="password" autocomplete="current-password" placeholder="至少 8 個字元" minlength="8" required /></label>
-          <label class="auth-field" id="authConfirmField" hidden><span>CONFIRM PASSWORD / 確認密碼</span><input id="authConfirm" type="password" autocomplete="new-password" placeholder="再次輸入密碼" /></label>
+          <label class="auth-field"><span>PASSWORD / 密碼</span><input id="authPassword" type="password" autocomplete="current-password" placeholder="至少 12 個字元" minlength="12" maxlength="128" required /></label>
+          <label class="auth-field" id="authConfirmField" hidden><span>CONFIRM PASSWORD / 確認密碼</span><input id="authConfirm" type="password" autocomplete="new-password" placeholder="再次輸入密碼" minlength="12" maxlength="128" /></label>
           <div class="auth-check auth-terms" id="termsField" hidden><input id="termsAccepted" type="checkbox" aria-label="同意服務條款與隱私政策" /> <span>我已閱讀並同意 <button class="legal-link" type="button" data-legal-doc="terms">服務條款</button> 與 <button class="legal-link" type="button" data-legal-doc="privacy">隱私政策</button></span></div>
           <button class="auth-submit" type="submit"><span>登入 STOW</span><svg aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
           <div class="auth-links-row" id="authLinksRow"><p class="auth-recovery" id="authRecovery"><span>忘記密碼？</span><button class="auth-link" id="forgotPasswordButton" type="button">重設密碼</button></p><span class="auth-links-divider" id="authLinksDivider" aria-hidden="true">·</span><p class="auth-signup" id="authModeSwitch"><span id="authSwitchPrompt">還沒有帳號？</span><button class="auth-link" id="signupButton" type="button">建立帳號</button></p></div>
-          <p class="auth-footnote">DEMO FLOW · 登入使用帳號名稱＋密碼；Gmail 僅用於密碼重設。</p>
+          <p class="auth-footnote">SECURE SESSION · 登入使用帳號名稱＋密碼；Gmail 僅用於密碼重設。</p>
         </form>
       </div>
     </dialog>
@@ -310,27 +310,41 @@
           <div class="account-panel-actions"><button class="dialog-secondary" id="cancelGmail" type="button">取消</button><button class="auth-submit" type="submit"><span>儲存 Gmail</span><svg aria-hidden="true"><use href="#icon-arrow"></use></svg></button></div>
         </form>
         <form class="account-panel" id="passwordPanel" hidden>
-          <div class="account-panel-heading"><strong>密碼管理</strong><small>更新後會套用到下一次登入。</small></div>
-          <label class="auth-field"><span>CURRENT PASSWORD / 目前密碼</span><input id="currentPassword" type="password" autocomplete="current-password" placeholder="輸入目前密碼" required /></label>
-          <label class="auth-field"><span>NEW PASSWORD / 新密碼</span><input id="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="至少 8 個字元" required /></label>
-          <label class="auth-field"><span>CONFIRM PASSWORD / 確認新密碼</span><input id="newPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="再次輸入新密碼" required /></label>
+          <div class="account-panel-heading"><strong>密碼管理</strong><small>更新後會立即撤銷其他裝置的登入狀態。</small></div>
+          <label class="auth-field"><span>CURRENT PASSWORD / 目前密碼</span><input id="currentPassword" type="password" autocomplete="current-password" minlength="12" maxlength="128" placeholder="輸入目前密碼" required /></label>
+          <label class="auth-field"><span>NEW PASSWORD / 新密碼</span><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="至少 12 個字元" required /></label>
+          <label class="auth-field"><span>CONFIRM PASSWORD / 確認新密碼</span><input id="newPasswordConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="再次輸入密碼" required /></label>
           <div class="account-panel-actions"><button class="dialog-secondary" id="cancelPassword" type="button">取消</button><button class="auth-submit" type="submit"><span>更新密碼</span><svg aria-hidden="true"><use href="#icon-arrow"></use></svg></button></div>
         </form>
-        <div class="account-footer"><span>COOKIE SESSION / 365 DAYS</span><button class="account-logout" id="accountLogout" type="button">登出</button></div>
+        <div class="account-footer"><span>HTTPONLY SESSION / 365 DAYS</span><button class="account-logout" id="accountLogout" type="button">登出</button></div>
       </div>
     </dialog>
 
     <dialog class="share-gate-dialog password-reset-dialog" id="passwordResetDialog" aria-labelledby="passwordResetTitle">
-      <form id="passwordResetForm">
+      <div id="passwordResetRequestView">
         <span class="gate-lock"><svg aria-hidden="true"><use href="#icon-lock"></use></svg></span>
         <p class="section-kicker">ACCOUNT RECOVERY / 03</p>
         <h2 id="passwordResetTitle">找回你的密碼</h2>
         <p class="share-gate-description">輸入註冊時的 Gmail 帳號，我們會寄出密碼重設連結。</p>
-        <label class="auth-field"><span>GMAIL / Gmail 帳號</span><input id="resetGmail" type="email" autocomplete="email" placeholder="name@gmail.com" pattern="^[^\s@]+@gmail\.com$" title="請輸入 Gmail 帳號" required /></label>
-        <button class="auth-submit" type="submit"><span>寄送重設連結</span><svg aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
+        <form id="passwordResetForm">
+          <label class="auth-field"><span>GMAIL / Gmail 帳號</span><input id="resetGmail" type="email" autocomplete="email" placeholder="name@gmail.com" pattern="^[^\s@]+@gmail\.com$" title="請輸入 Gmail 帳號" required /></label>
+          <button class="auth-submit" type="submit"><span>寄送重設連結</span><svg aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
+        </form>
         <button class="dialog-secondary" id="backToAuth" type="button">返回登入</button>
-        <p class="auth-footnote">DEMO FLOW · 正式版本會寄送一次性密碼重設連結。</p>
-      </form>
+        <p class="auth-footnote">SECURE RECOVERY · 連結只使用一次，並會在一小時後失效。</p>
+      </div>
+      <div id="passwordResetConfirmView" hidden>
+        <span class="gate-lock"><svg aria-hidden="true"><use href="#icon-lock"></use></svg></span>
+        <p class="section-kicker">ACCOUNT RECOVERY / RESET</p>
+        <h2>設定新的密碼</h2>
+        <p class="share-gate-description">請設定新的密碼；完成後，其他裝置的登入狀態會被撤銷。</p>
+        <form id="passwordResetConfirmForm">
+          <label class="auth-field"><span>NEW PASSWORD / 新密碼</span><input id="resetNewPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="至少 12 個字元" required /></label>
+          <label class="auth-field"><span>CONFIRM PASSWORD / 確認新密碼</span><input id="resetNewPasswordConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="再次輸入密碼" required /></label>
+          <button class="auth-submit" type="submit"><span>重設密碼</span><svg aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
+        </form>
+        <p class="auth-footnote">ONE-TIME LINK · 重設連結只能使用一次。</p>
+      </div>
     </dialog>
 
     <dialog class="legal-dialog" id="legalDialog" aria-labelledby="legalTitle">
@@ -377,10 +391,17 @@
         <label class="auth-field" id="shareGateHandleField"><span>HANDLE / 帳號名稱</span><input id="shareGateHandle" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" placeholder="nickname" /></label>
         <label class="auth-field" id="shareGatePasswordField"><span>PASSWORD / 密碼</span><input id="shareGatePassword" type="password" autocomplete="current-password" placeholder="輸入密碼" /></label>
         <button class="auth-submit" id="shareGateSubmit" type="submit"><span>登入並查看</span><svg aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
-        <p class="auth-footnote">登入成功後，內容才會顯示在你的裝置上。</p>
+        <p class="auth-footnote">登入成功後，伺服器會再次驗證分享權限，內容才會顯示。</p>
       </form>
     </dialog>
 
-    <script src="app.js?v=20260815-12"></script>
+    <dialog class="share-dialog shared-preview-dialog" id="sharedPreviewDialog" aria-labelledby="sharedPreviewTitle">
+      <div class="dialog-header"><div><p class="section-kicker">SHARED CONTENT / ACCESS GRANTED</p><h2 id="sharedPreviewTitle">STOW 內容</h2></div><button class="detail-close" id="closeSharedPreview" type="button" aria-label="關閉分享內容"><svg aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
+      <div class="shared-preview-meta" id="sharedPreviewMeta">CLIP · 剛剛</div>
+      <pre class="shared-preview-content" id="sharedPreviewContent"></pre>
+      <div class="dialog-actions"><button class="dialog-secondary" id="sharedPreviewCopy" type="button">複製內容</button><button class="auth-submit dialog-primary" id="sharedPreviewDone" type="button"><span>完成</span><svg aria-hidden="true"><use href="#icon-check"></use></svg></button></div>
+    </dialog>
+
+    <script src="app.js?v=20260815-13"></script>
   </body>
 </html>
