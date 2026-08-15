@@ -533,7 +533,7 @@ body[data-theme='dark'] .auth-submit { color: #10151b; }
 .gate-lock svg { width: 22px; height: 22px; }
 .share-gate-dialog .section-kicker { margin: 0; }
 .share-gate-dialog h2 { margin: 9px 0 8px; color: var(--ink); font-size: 28px; }
-.share-gate-description { max-width: 34ch; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.share-gate-description { max-width: 34ch; margin: 0 auto; color: var(--muted); font-size: 11px; line-height: 1.7; text-align: center; }
 .share-gate-item { display: flex; width: 100%; align-items: center; gap: 9px; margin-top: 20px; padding: 9px; border: 1px solid var(--line); text-align: left; }
 .share-gate-item strong { overflow: hidden; color: var(--ink); font: 500 11px var(--ui-font, var(--font-ui)); text-overflow: ellipsis; white-space: nowrap; }
 .share-gate-dialog .auth-field { width: 100%; text-align: left; }
