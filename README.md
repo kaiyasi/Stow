@@ -10,7 +10,7 @@ npm install
 npm start
 ```
 
-`DATABASE_URL` 或 `POSTGRES_*` 必須指向可用的 PostgreSQL。正式環境另外設定 `APP_BASE_URL`、`SMTP_URL` 與 `SMTP_FROM`，忘記密碼才會寄出一次性重設連結。
+`DATABASE_URL` 或 `POSTGRES_*` 必須指向可用的 PostgreSQL。正式環境另外設定 `APP_BASE_URL`、`SMTP_HOST`、`SMTP_PORT`、`SMTP_USER`、`SMTP_PASSWORD`、`SMTP_FROM`，忘記密碼才會寄出一次性重設連結。不要把真正的 `.env` 放進原始碼 repository。
 
 若只想看靜態畫面，可以直接開啟 `index.html`；但靜態預覽不會提供登入、內容保存或跨裝置同步。
 
