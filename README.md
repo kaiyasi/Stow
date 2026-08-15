@@ -7,13 +7,12 @@
 ```sh
 cp .env.example .env
 npm install
-npm run build
 npm start
 ```
 
 `DATABASE_URL` 或 `POSTGRES_*` 必須指向可用的 PostgreSQL。正式環境另外設定 `APP_BASE_URL`、`SMTP_URL` 與 `SMTP_FROM`，忘記密碼才會寄出一次性重設連結。
 
-正式啟動前需要先執行 `npm run build`；Express 會提供 Vite 產生的 `dist/`。開發時可使用 `npm run dev`，登入與註冊路由分別是 `/login` 與 `/register`。
+若只想看靜態畫面，可以直接開啟 `index.html`；但靜態預覽不會提供登入、內容保存或跨裝置同步。
 
 ## 已完成的互動
 
@@ -32,9 +31,7 @@ npm start
 ## 目錄分工
 
 - `server/`：與平台無關的 Express API、帳號、Session、內容與分享權限
-- `src/`：Vue 3 元件、Vue Router 路由與共用 reactive store
-- `styles.css`：保留原本 Blog／Website 風格的介面系統
-- `vite.config.js`：前端 build 與素材輸出設定
+- `index.html`、`styles.css`、`app.js`：前端介面
 
 ## 素材
 

@@ -4,7 +4,6 @@
 .vscode/
 *.log
 node_modules/
-dist/
 
 # Secrets and local environment files
 .env

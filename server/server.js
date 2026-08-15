@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +22,7 @@ const csrfCookieName = "stow_csrf";
 const passwordRounds = 12;
 const maxContentLength = 200_000;
 const serverRoot = path.dirname(fileURLToPath(import.meta.url));
-const publicRoot = path.resolve(process.env.PUBLIC_ROOT || path.join(serverRoot, "..", "dist"));
+const publicRoot = path.resolve(process.env.PUBLIC_ROOT || path.join(serverRoot, ".."));
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -724,6 +725,23 @@ app.use((error, _req, res, _next) => {
   return res.status(status).json({ code, message: status >= 500 ? "服務暫時無法完成要求" : error.message });
 });
 
+async function sendAuthEntryPage(req, res, next) {
+  try {
+    const indexPath = path.join(publicRoot, "index.html");
+    const source = await readFile(indexPath, "utf8");
+    const html = source.replace(
+      '<dialog class="auth-dialog" id="authDialog"',
+      '<dialog class="auth-dialog" id="authDialog" open',
+    );
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.type("html").send(html);
+  } catch (error) {
+    next(error);
+  }
+}
+
+app.get(["/login", "/register"], sendAuthEntryPage);
+
 app.use(express.static(publicRoot, {
   index: "index.html",
   maxAge: isProduction ? "1h" : 0,
@@ -733,10 +751,7 @@ app.use(express.static(publicRoot, {
     }
   },
 }));
-app.get("*", (_req, res) => {
-  res.setHeader("Cache-Control", "no-store, max-age=0");
-  res.sendFile(path.join(publicRoot, "index.html"));
-});
+app.get("*", (_req, res) => res.sendFile(path.join(publicRoot, "index.html")));
 
 async function initialize() {
   if (pool) {

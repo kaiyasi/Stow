@@ -15,7 +15,7 @@
   --accent-warm: #dda82c;
   --accent-glow: rgba(219, 73, 61, .1);
   --code-bg: #eae9e3;
-  --scene-image: url('/ambient-room.webp');
+  --scene-image: url('assets/ambient-room.webp');
   --shadow: 0 28px 80px rgba(23, 24, 26, .17);
   --font-display: 'Cormorant', 'Noto Serif TC', Georgia, serif;
   --font-ui: 'Space Grotesk', 'Noto Sans TC', system-ui, sans-serif;
@@ -39,7 +39,7 @@ body[data-theme='dark'] {
   --accent-warm: #c29a57;
   --accent-glow: rgba(182, 83, 80, .12);
   --code-bg: #0b0d0f;
-  --scene-image: url('/editorial-paper-bg.png');
+  --scene-image: url('assets/editorial-paper-bg.png');
   --shadow: 0 32px 90px rgba(0, 0, 0, .5);
 }
 
@@ -65,8 +65,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 
 /* The original projects use a scene behind a precise, print-like interface. */
 .main-content { position: relative; z-index: 1; height: 100%; min-height: 0; overflow: hidden; padding-top: 68px; background: var(--bg); }
-.landing-root { height: 100%; min-height: 0; }
-.landing-main { height: 100%; }
 .main-content::before { position: fixed; z-index: -2; inset: 68px 0 0; background: linear-gradient(90deg, color-mix(in srgb, var(--bg) 78%, transparent), color-mix(in srgb, var(--bg) 90%, transparent) 35%, color-mix(in srgb, var(--bg) 92%, transparent) 72%, color-mix(in srgb, var(--bg) 76%, transparent)), var(--scene-image) center 44% / cover no-repeat; opacity: .29; filter: saturate(.68) contrast(.97); content: ""; pointer-events: none; transition: background .35s ease; }
 .main-content::after { position: fixed; z-index: -1; inset: 68px 0 0; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--line) 48%, transparent) 25%); opacity: .26; content: ""; pointer-events: none; }
 .app-shell { display: block; height: 100%; min-height: 0; }
@@ -417,14 +415,6 @@ body[data-theme='dark'] .detail-copy-button { color: #10151b; }
 .auth-signal i { width: 6px; height: 6px; border-radius: 50%; background: #82bf90; box-shadow: 0 0 0 3px rgba(130,191,144,.17); }
 .auth-signal b { margin-left: auto; color: #e0a24a; font-weight: 500; }
 .auth-form { max-height: calc(100vh - 30px); overflow-y: auto; padding: 27px 29px 23px; background: var(--panel); }
-.auth-entry-page { position: relative; display: flex; width: 100%; min-height: 100%; overflow-y: auto; align-items: center; justify-content: center; padding: 56px 24px 32px; background: var(--bg); }
-.auth-entry-page::before { position: fixed; z-index: 0; inset: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--bg) 78%, transparent), color-mix(in srgb, var(--bg) 90%, transparent) 35%, color-mix(in srgb, var(--bg) 92%, transparent) 72%, color-mix(in srgb, var(--bg) 76%, transparent)), var(--scene-image) center / cover no-repeat; opacity: .22; content: ""; pointer-events: none; }
-.auth-entry-brand { position: fixed; z-index: 2; top: 18px; left: 24px; display: flex; align-items: center; gap: 9px; color: var(--accent); font-family: var(--font-ui); }
-.auth-entry-brand strong { font-size: 14px; letter-spacing: .04em; }
-.auth-entry-brand small { padding-left: 8px; border-left: 1px solid var(--line); font: 500 8px var(--font-mono); }
-.auth-entry-card { position: relative; z-index: 1; width: min(760px, calc(100vw - 30px)); overflow: hidden; border: 1px solid var(--line); border-radius: 2px; background: var(--panel); box-shadow: var(--shadow); }
-.auth-entry-form { max-height: none; }
-.auth-entry-form h1 { margin: 0; font-size: 22px; }
 .auth-intro { margin: 17px 0 0; color: var(--muted); font-size: 11px; line-height: 1.75; }
 .auth-field, .share-field { display: grid; gap: 6px; margin-top: 17px; color: var(--faint); font: 500 8px var(--font-mono); letter-spacing: .04em; }
 .auth-field[hidden], .share-field[hidden] { display: none; }
