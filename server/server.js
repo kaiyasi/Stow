@@ -1,28 +1,33 @@
 import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import bcrypt from "bcryptjs";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import nodemailer from "nodemailer";
-import pg from "pg";
 
-const { Pool } = pg;
+import { config } from "./config.js";
+import { createPool, schema } from "./database.js";
+import { ApiError } from "./errors.js";
+import { createMailTransporter, sendPasswordResetEmail as deliverPasswordResetEmail } from "./mail.js";
+
 const app = express();
-const isProduction = process.env.NODE_ENV === "production";
-const port = Number(process.env.APP_PORT || process.env.PORT || 3000);
-const host = process.env.APP_HOST || "0.0.0.0";
-const sessionMaxAge = 60 * 60 * 24 * 365;
-const passwordResetMaxAge = 60 * 60;
-const sessionCookieName = "stow_session";
-const csrfCookieName = "stow_csrf";
-const passwordRounds = 12;
-const maxContentLength = 200_000;
-const serverRoot = path.dirname(fileURLToPath(import.meta.url));
-const publicRoot = path.resolve(process.env.PUBLIC_ROOT || path.join(serverRoot, ".."));
+const {
+  isProduction,
+  port,
+  host,
+  sessionMaxAge,
+  passwordResetMaxAge,
+  sessionCookieName,
+  csrfCookieName,
+  passwordRounds,
+  maxContentLength,
+  publicRoot,
+} = config;
+const pool = createPool();
+const mailTransporter = createMailTransporter();
+let databaseReady = false;
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -46,101 +51,7 @@ app.use(helmet({
 }));
 app.use(express.json({ limit: "256kb" }));
 
-function createPool() {
-  const hasDiscreteConfig = process.env.POSTGRES_HOST || process.env.PGHOST;
-  if (hasDiscreteConfig) {
-    return new Pool({
-      host: process.env.POSTGRES_HOST || process.env.PGHOST,
-      port: Number(process.env.POSTGRES_PORT || process.env.PGPORT || 5432),
-      database: process.env.POSTGRES_DB || process.env.PGDATABASE || "stow",
-      user: process.env.POSTGRES_USER || process.env.PGUSER || "stow",
-      password: process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD,
-      max: 10,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
-    });
-  }
-
-  if (process.env.DATABASE_URL) {
-    const connectionString = process.env.DATABASE_URL.replace(/^postgresql\+asyncpg:\/\//, "postgresql://");
-    return new Pool({ connectionString, max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 5_000 });
-  }
-
-  return null;
-}
-
-const pool = createPool();
-let databaseReady = false;
-
-const schema = `
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    handle TEXT NOT NULL UNIQUE,
-    gmail TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    terms_accepted_at TIMESTAMPTZ NOT NULL,
-    privacy_accepted_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-
-  CREATE TABLE IF NOT EXISTS sessions (
-    token_hash TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    user_agent TEXT,
-    ip_address TEXT
-  );
-  CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
-  CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
-
-  CREATE TABLE IF NOT EXISTS items (
-    id TEXT PRIMARY KEY,
-    owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('clip', 'note', 'link', 'code')),
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    tags JSONB NOT NULL DEFAULT '[]'::jsonb,
-    device TEXT NOT NULL DEFAULT '此裝置',
-    pinned BOOLEAN NOT NULL DEFAULT FALSE,
-    collection TEXT NOT NULL DEFAULT 'work',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS items_owner_updated_idx ON items(owner_id, updated_at DESC);
-
-  CREATE TABLE IF NOT EXISTS shares (
-    token_hash TEXT PRIMARY KEY,
-    owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-    access_type TEXT NOT NULL CHECK (access_type IN ('recipient', 'link')),
-    recipient_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    revoked_at TIMESTAMPTZ
-  );
-  CREATE INDEX IF NOT EXISTS shares_item_id_idx ON shares(item_id);
-  CREATE INDEX IF NOT EXISTS shares_recipient_idx ON shares(recipient_user_id);
-
-  CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    token_hash TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    used_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS password_reset_expires_at_idx ON password_reset_tokens(expires_at);
-`;
-
-class ApiError extends Error {
-  constructor(status, code, message) {
-    super(message);
-    this.status = status;
-    this.code = code;
-  }
-}
-
+// Persistence guards and input validation
 function requireDatabase() {
   if (!pool || !databaseReady) throw new ApiError(503, "DATABASE_UNAVAILABLE", "服務資料庫目前尚未就緒");
 }
@@ -305,6 +216,7 @@ function clientAddress(req) {
   return String(req.ip || "").slice(0, 128);
 }
 
+// Session management
 async function findUserBySession(req) {
   requireDatabase();
   const cookies = parseCookies(req.headers.cookie);
@@ -343,6 +255,7 @@ async function issueSession(client, userId, req, res) {
   setSessionCookie(res, token);
 }
 
+// Public URL helpers
 function requestOrigin(req) {
   const configured = process.env.APP_BASE_URL;
   if (configured) return new URL(configured);
@@ -356,107 +269,7 @@ function shareURL(req, token) {
   return url.toString();
 }
 
-function escapeEmailHTML(value) {
-  return String(value ?? "").replace(/[&<>\"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#039;",
-  })[character]);
-}
-
-function passwordResetEmailHTML(url) {
-  const safeUrl = escapeEmailHTML(url);
-  return `<!doctype html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
-    <title>重設你的 STOW 密碼</title>
-  </head>
-  <body style="margin:0;padding:0;background:#ebe7df;color:#26383b;font-family:Arial,'Noto Sans TC','Microsoft JhengHei',sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#ebe7df;">
-      <tr>
-        <td align="center" style="padding:32px 14px;">
-          <table role="presentation" width="620" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:620px;background:#fffdfa;border:1px solid #d8d3c8;">
-            <tr>
-              <td style="background:#26383b;">
-                <img src="cid:stow-reset-bg@stow" width="620" alt="" style="display:block;width:100%;max-width:620px;height:auto;border:0;" />
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:30px 36px 34px;">
-                <p style="margin:0 0 10px;color:#d94f43;font-size:11px;line-height:1.4;letter-spacing:2px;">STOW / ACCOUNT RECOVERY</p>
-                <h1 style="margin:0;color:#1e282a;font-size:30px;font-weight:500;line-height:1.25;">找回你的密碼</h1>
-                <p style="margin:18px 0 0;color:#586463;font-size:15px;line-height:1.8;">有人要求重設你的 STOW 密碼。點擊下面的按鈕設定新密碼，這條連結只會使用一次。</p>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 0;">
-                  <tr>
-                    <td style="border-radius:2px;background:#d94f43;">
-                      <a href="${safeUrl}" style="display:inline-block;padding:13px 20px;color:#ffffff;font-size:14px;font-weight:700;line-height:1;text-decoration:none;">設定新的密碼&nbsp;&nbsp;→</a>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin:24px 0 0;padding:14px 16px;border-left:3px solid #d9a149;background:#f4f0e8;color:#6d756f;font-size:12px;line-height:1.7;">安全提醒：連結將在一小時後失效。如果不是你本人要求，請忽略這封信。</p>
-                <p style="margin:24px 0 0;color:#8b918b;font-size:11px;line-height:1.7;">如果按鈕無法使用，請將以下網址貼到瀏覽器：<br /><a href="${safeUrl}" style="color:#b65b4d;word-break:break-all;">${safeUrl}</a></p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:17px 36px;background:#26383b;color:#dfe6df;font-size:10px;line-height:1.6;letter-spacing:1px;">STOW · PRIVATE BY DEFAULT<br /><span style="color:#9eaaa2;letter-spacing:0;">把想留住的東西，帶到每一台裝置。</span></td>
-            </tr>
-          </table>
-          <p style="margin:16px 0 0;color:#8d938c;font-size:10px;line-height:1.6;">這是系統自動寄出的郵件，請勿直接回覆。</p>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
-}
-
-let mailTransporter = null;
-if (process.env.SMTP_URL) {
-  mailTransporter = nodemailer.createTransport(process.env.SMTP_URL, {
-    disableFileAccess: true,
-    disableUrlAccess: true,
-  });
-} else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
-  mailTransporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 465),
-    secure: String(process.env.SMTP_SECURE || "true").toLowerCase() === "true",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
-    },
-    disableFileAccess: true,
-    disableUrlAccess: true,
-  });
-}
-
-async function sendPasswordResetEmail(req, gmail, token) {
-  const url = shareURL(req, token).replace("?share=", "?reset=");
-  if (!mailTransporter) {
-    if (isProduction) throw new ApiError(503, "RESET_UNAVAILABLE", "密碼重設信件服務尚未設定");
-    console.info(`[STOW development] password reset URL for ${gmail}: ${url}`);
-    return;
-  }
-  const resetEmailImage = await readFile(path.join(publicRoot, "assets", "email-reset-bg.png"));
-  await mailTransporter.sendMail({
-    from: process.env.SMTP_FROM || "STOW <no-reply@localhost>",
-    to: gmail,
-    subject: "重設你的 STOW 密碼",
-    text: `有人要求重設你的 STOW 密碼。連結將在一小時後失效：\n\n${url}\n\n如果不是你本人操作，請忽略這封信。`,
-    html: passwordResetEmailHTML(url),
-    attachments: [{
-      filename: "stow-reset-background.png",
-      content: resetEmailImage,
-      cid: "stow-reset-bg@stow",
-      contentDisposition: "inline",
-    }],
-  });
-}
-
+// Request protection
 function csrfRequired(req, _res, next) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
   const cookies = parseCookies(req.headers.cookie);
@@ -474,6 +287,7 @@ const authLimiter = rateLimit({
   message: { code: "RATE_LIMITED", message: "嘗試次數過多，請稍後再試" },
 });
 
+// API routes
 app.get("/api/health", (_req, res) => {
   res.status(databaseReady ? 200 : 503).json({
     ok: databaseReady,
@@ -583,7 +397,14 @@ app.post("/api/auth/password-reset/request", authLimiter, async (req, res, next)
          VALUES ($1, $2, $3)`,
         [digest(token), result.rows[0].id, nowPlusSeconds(passwordResetMaxAge)],
       );
-      await sendPasswordResetEmail(req, gmail, token);
+      const resetUrl = shareURL(req, token).replace("?share=", "?reset=");
+      await deliverPasswordResetEmail({
+        transporter: mailTransporter,
+        gmail,
+        url: resetUrl,
+        isProduction,
+        publicRoot,
+      });
     }
     res.status(202).json({ ok: true, message: "如果帳號存在，重設密碼連結已寄出" });
   } catch (error) {
@@ -807,6 +628,7 @@ app.use((error, _req, res, _next) => {
   return res.status(status).json({ code, message: status >= 500 ? "服務暫時無法完成要求" : error.message });
 });
 
+// Static application routes
 async function sendAuthEntryPage(req, res, next) {
   try {
     const indexPath = path.join(publicRoot, "index.html");
@@ -835,6 +657,7 @@ app.use(express.static(publicRoot, {
 }));
 app.get("*", (_req, res) => res.sendFile(path.join(publicRoot, "index.html")));
 
+// Startup
 async function initialize() {
   if (pool) {
     try {

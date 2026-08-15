@@ -1,3 +1,4 @@
+// API client
 const API_ROOT = "/api";
 let csrfToken = "";
 let csrfPromise = null;
@@ -46,129 +47,7 @@ async function api(path, options = {}) {
   return data;
 }
 
-const seedItems = [
-  {
-    id: "seed-1",
-    type: "note",
-    title: "本週工作節奏",
-    content: "先做可以讓事情往前走的事，再整理那些看起來很急的事。\n\n— 週一早上給自己的提醒",
-    tags: ["reflection", "work"],
-    device: "MacBook Pro",
-    timeLabel: "剛剛",
-    updatedAt: Date.now() - 7 * 60 * 1000,
-    pinned: true,
-    collection: "work",
-  },
-  {
-    id: "seed-2",
-    type: "code",
-    title: "常用的 Git 分支流程",
-    content: "git switch main\ngit pull --rebase\ngit switch -c feature/your-idea",
-    tags: ["dev", "terminal"],
-    device: "MacBook Pro",
-    timeLabel: "12 分鐘前",
-    updatedAt: Date.now() - 12 * 60 * 1000,
-    pinned: true,
-    collection: "work",
-  },
-  {
-    id: "seed-3",
-    type: "link",
-    title: "一篇想慢慢讀的文章",
-    content: "https://www.are.na/are-na-editorial/notes-on-attention",
-    tags: ["read later", "attention"],
-    device: "iPhone 15 Pro",
-    timeLabel: "28 分鐘前",
-    updatedAt: Date.now() - 28 * 60 * 1000,
-    pinned: false,
-    collection: "read-later",
-  },
-  {
-    id: "seed-4",
-    type: "clip",
-    title: "寄送地址格式",
-    content: "台北市大安區和平東路三段 1 號 4 樓\n收件人：Kei Yang\n電話：09xx-xxx-xxx",
-    tags: ["生活", "address"],
-    device: "iPhone 15 Pro",
-    timeLabel: "1 小時前",
-    updatedAt: Date.now() - 60 * 60 * 1000,
-    pinned: true,
-    collection: "personal",
-  },
-  {
-    id: "seed-5",
-    type: "note",
-    title: "產品想法：更安靜的首頁",
-    content: "首頁不需要一直提醒使用者「還有什麼沒完成」。\n\n可以改成：一個今天最想留住的東西、一個快速入口，和一點點同步狀態。剩下的交給搜尋。",
-    tags: ["product", "ideas"],
-    device: "iPad Air",
-    timeLabel: "昨天",
-    updatedAt: Date.now() - 22 * 60 * 60 * 1000,
-    pinned: false,
-    collection: "work",
-  },
-  {
-    id: "seed-6",
-    type: "clip",
-    title: "搭配這組顏色看看",
-    content: "#26383B  深墨綠\n#C97962  陶土橘\n#F4F0E8  舊紙白\n#8C80A8  霧紫",
-    tags: ["palette", "design"],
-    device: "MacBook Pro",
-    timeLabel: "昨天",
-    updatedAt: Date.now() - 26 * 60 * 60 * 1000,
-    pinned: false,
-    collection: "work",
-  },
-  {
-    id: "seed-7",
-    type: "link",
-    title: "Typography in UI Design",
-    content: "https://type-scale.com/\n給下個介面做字級階梯時參考。",
-    tags: ["design", "reference"],
-    device: "Windows PC",
-    timeLabel: "8 月 14 日",
-    updatedAt: Date.now() - 34 * 60 * 60 * 1000,
-    pinned: false,
-    collection: "read-later",
-  },
-  {
-    id: "seed-8",
-    type: "note",
-    title: "週末買菜清單",
-    content: "番茄、雞蛋、酸種麵包\n無糖豆漿、羅勒、洗衣精",
-    tags: ["weekend", "生活"],
-    device: "iPhone 15 Pro",
-    timeLabel: "8 月 13 日",
-    updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-    pinned: false,
-    collection: "personal",
-  },
-  {
-    id: "seed-9",
-    type: "code",
-    title: "快速建立一個 debounce",
-    content: "const debounce = (fn, delay = 300) => {\n  let timer;\n  return (...args) => {\n    clearTimeout(timer);\n    timer = setTimeout(() => fn(...args), delay);\n  };\n};",
-    tags: ["javascript", "snippet"],
-    device: "Windows PC",
-    timeLabel: "8 月 12 日",
-    updatedAt: Date.now() - 4 * 24 * 60 * 60 * 1000,
-    pinned: false,
-    collection: "work",
-  },
-  {
-    id: "seed-10",
-    type: "clip",
-    title: "下次旅行想去的地方",
-    content: "海邊小鎮、早起市場、可以寫一整個下午的咖啡店。\n不要排太滿，留一點走錯路的時間。",
-    tags: ["travel", "inspiration"],
-    device: "iPad Air",
-    timeLabel: "8 月 11 日",
-    updatedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    pinned: false,
-    collection: "personal",
-  },
-];
-
+// Application state and product copy
 const state = {
   items: [],
   filter: "all",
@@ -220,6 +99,7 @@ const legalDocuments = {
   },
 };
 
+// DOM helpers and rendering
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
 
@@ -395,6 +275,7 @@ function showToast(message) {
   showToast.timer = setTimeout(() => toast.classList.remove("is-visible"), 2400);
 }
 
+// Dialogs and feedback
 function openDialog(dialog) {
   if (!dialog) return;
   if (typeof dialog.showModal === "function") {
@@ -514,6 +395,7 @@ function closeLegalDialog() {
   }
 }
 
+// Authentication, account, and access flows
 function renderAuthUI() {
   const button = $("#accountButton");
   const label = $("#accountLabel");
@@ -778,6 +660,7 @@ function clearShareURL() {
   window.history.replaceState({}, "", url.toString());
 }
 
+// Item actions and sharing
 async function copyText(value) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -908,6 +791,7 @@ function updateCharCount() {
   $("#charCount").textContent = `${count.toLocaleString("zh-TW")} 字`;
 }
 
+// Navigation and keyboard interactions
 function toggleMobileMenu(force) {
   const sidebar = $("#sidebar");
   const overlay = $("#mobileOverlay");
@@ -929,6 +813,7 @@ function closeShortcuts() {
 }
 
 // Navigation filters share one state so the sidebar and toolbar always agree.
+// Event bindings
 $$('[data-filter]').forEach((element) => {
   element.addEventListener("click", () => {
     updateFilter(element.dataset.filter);
@@ -1378,6 +1263,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+// Theme and application bootstrap
 const storedTheme = localStorage.getItem("stow-theme");
 if (storedTheme === "dark" || storedTheme === "light") document.body.dataset.theme = storedTheme;
 $("#themeToggle").addEventListener("click", () => {

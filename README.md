@@ -45,9 +45,14 @@ The application includes the following safeguards:
 The project uses a platform-independent Express server with a static HTML/CSS/JavaScript frontend:
 
 ```text
-Paster/
+STOW/
 ├── assets/              # Images and favicon assets
-├── server/server.js     # Express API, authentication, sessions, and ACL
+├── server/
+│   ├── config.js        # Runtime configuration
+│   ├── database.js      # PostgreSQL pool and schema
+│   ├── errors.js        # Shared API error type
+│   ├── mail.js          # Password-reset email delivery
+│   └── server.js        # Express API, authentication, and ACL
 ├── index.html           # Application markup
 ├── styles.css           # Interface styles
 ├── app.js               # Frontend state and interactions
@@ -75,6 +80,12 @@ npm start
 ```
 
 The application listens on `APP_PORT` and defaults to port `3000`.
+
+Run the lightweight source checks with:
+
+```sh
+npm run check
+```
 
 The static `index.html` can be opened for a visual preview, but authentication,
 database persistence, synchronization, sharing, and password recovery require

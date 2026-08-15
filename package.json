@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --env-file-if-exists=.env server/server.js"
+    "start": "node --env-file-if-exists=.env server/server.js",
+    "check": "node --check app.js && node --check server/server.js && node --check server/config.js && node --check server/database.js && node --check server/errors.js && node --check server/mail.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

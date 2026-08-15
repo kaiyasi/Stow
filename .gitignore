@@ -13,11 +13,9 @@ node_modules/
 *.key
 
 # Keep CI and platform-specific automation outside the source repository.
-.gitlab/
-.gitlab-ci.yml
+.platform/
 
 # Keep deployment templates outside the canonical source tree.
-.platform/
 Dockerfile
 service.config.yml
 docker-compose.template.yml
