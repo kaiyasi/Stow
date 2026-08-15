@@ -409,7 +409,11 @@ const authLimiter = rateLimit({
 });
 
 app.get("/api/health", (_req, res) => {
-  res.status(databaseReady ? 200 : 503).json({ ok: databaseReady, database: databaseReady ? "ready" : "unavailable" });
+  res.status(databaseReady ? 200 : 503).json({
+    ok: databaseReady,
+    database: databaseReady ? "ready" : "unavailable",
+    mail: mailTransporter ? "configured" : "unavailable",
+  });
 });
 
 app.use("/api", csrfRequired);
