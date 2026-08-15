@@ -397,8 +397,19 @@ function showToast(message) {
 
 function openDialog(dialog) {
   if (!dialog) return;
-  if (typeof dialog.showModal === "function") dialog.showModal();
-  else dialog.setAttribute("open", "");
+  if (typeof dialog.showModal === "function") {
+    // /login and /register may arrive with a server-rendered `open` attribute.
+    // Convert that non-modal state into a real modal before showing it.
+    if (dialog.open && typeof dialog.close === "function") dialog.close();
+    try {
+      dialog.showModal();
+    } catch (error) {
+      console.warn("Unable to show dialog as modal; falling back to open state", error);
+      dialog.setAttribute("open", "");
+    }
+  } else {
+    dialog.setAttribute("open", "");
+  }
   dialog.dataset.backdropReady = "pending";
   window.setTimeout(() => {
     if (dialog.open) dialog.dataset.backdropReady = "ready";
@@ -1397,7 +1408,7 @@ async function openAuthFromURL() {
   const mode = authEntryModeFromURL();
   if (!mode) return false;
   if (state.authenticated) return false;
-  if (!$("#authDialog").open) openAuthDialog();
+  openAuthDialog();
   if (mode === "register") setAuthMode("register");
   return true;
 }
