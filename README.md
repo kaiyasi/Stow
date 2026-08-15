@@ -1,8 +1,18 @@
 # STOW
 
+<p align="center">
+  <img src="assets/stow-readme-banner.png" alt="STOW editorial archive banner" />
+</p>
+
 STOW is a private, cross-device clipboard and notes workspace. It provides a
 single place to collect text, links, code snippets, and personal notes, then
 access them from any signed-in device.
+
+## Preview
+
+<p align="center">
+  <img src="assets/stow-workspace-preview.png" alt="STOW workspace preview" width="960" />
+</p>
 
 ## Overview
 
