@@ -1,0 +1,16 @@
+# Local and editor files
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Keep GitLab-specific automation outside the source repository.
+.gitlab/
+.gitlab-ci.yml
