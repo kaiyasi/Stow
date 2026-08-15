@@ -1,9 +1,5 @@
 # STOW — 跨裝置剪貼簿
 
-這是一個參考 `/home/kaiyasi/Coder/Blog` 與 `/home/kaiyasi/Coder/Website` 視覺語言的跨裝置剪貼簿：把剪貼內容、連結、程式碼與記事放在同一個可搜尋的個人檔案卡片裡。內容預設只屬於本人，只有主動建立分享連結後才會開放給其他人。
-
-介面沿用兩個專案的共同元素：Blog 的檔案索引、等寬字與紅／藍重音，以及 Website 的票券框線、巨大標題、卡片切換與明暗主題。
-
 ## 開始使用
 
 正式互動需要 Node.js 與 PostgreSQL。先安裝依賴並設定環境變數：
@@ -32,17 +28,13 @@ npm start
 - `/` 搜尋、`N` 新增、`SUPER/Ctrl + Enter` 儲存、`ESC` 關閉視窗
 - 行動版側欄與響應式排版
 
-目前同步按鈕會重新從 API 讀取 PostgreSQL；若要做到即時推送，可再接 WebSocket。瀏覽器本身仍不允許網站在背景無限制讀取系統剪貼簿，使用者需要透過貼上動作或瀏覽器明確授權。
-
 ## 目錄分工
 
 - `server/`：與平台無關的 Express API、帳號、Session、內容與分享權限
 - `index.html`、`styles.css`、`app.js`：前端介面
-- `paster-gitlab-ops/`：只放 GitLab 上傳操作，不存放憑證
-- `paster-gitlab-staging/`：GitLab 平台模板與部署組裝目錄，不回寫原始碼
 
 ## 素材
 
 - `assets/editorial-paper-bg.png`：以 `imagegen` 生成的低對比紙張／墨跡背景
-- `assets/ambient-room.webp`：取自 Website 專案的環境背景，用低透明度作為介面氛圍層
+- `assets/ambient-room.webp`：低透明度作為介面氛圍層
 - `assets/favicon.svg`：以 SVG 製作的 STOW favicon，避免小尺寸失真
