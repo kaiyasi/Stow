@@ -24,6 +24,7 @@ const {
   csrfCookieName,
   passwordRounds,
   maxContentLength,
+  appBaseUrl,
   publicRoot,
 } = config;
 const pool = createPool();
@@ -264,8 +265,9 @@ async function issueSession(client, userId, req, res) {
 
 // Public URL helpers
 function requestOrigin(req) {
-  const configured = process.env.APP_BASE_URL;
-  if (configured) return new URL(configured);
+  // Prefer the configured canonical base URL so generated links (password
+  // reset, shares) do not trust the client-supplied Host header.
+  if (appBaseUrl) return new URL(appBaseUrl);
   return new URL(`${req.protocol}://${req.get("host")}/`);
 }
 
@@ -292,6 +294,16 @@ const authLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { code: "RATE_LIMITED", message: "嘗試次數過多，請稍後再試" },
+});
+
+// Guards authenticated write endpoints (item/share creation and edits) against
+// runaway or abusive automation.
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { code: "RATE_LIMITED", message: "操作過於頻繁，請稍後再試" },
 });
 
 // API routes
@@ -506,7 +518,7 @@ app.get("/api/items", requireUser, async (req, res, next) => {
   }
 });
 
-app.post("/api/items", requireUser, async (req, res, next) => {
+app.post("/api/items", requireUser, writeLimiter, async (req, res, next) => {
   try {
     const input = validateItemInput(req.body || {});
     const id = crypto.randomUUID();
@@ -522,7 +534,7 @@ app.post("/api/items", requireUser, async (req, res, next) => {
   }
 });
 
-app.patch("/api/items/:id", requireUser, async (req, res, next) => {
+app.patch("/api/items/:id", requireUser, writeLimiter, async (req, res, next) => {
   try {
     const input = validateItemInput(req.body || {}, true);
     const fields = [];
@@ -552,7 +564,7 @@ app.patch("/api/items/:id", requireUser, async (req, res, next) => {
   }
 });
 
-app.delete("/api/items/:id", requireUser, async (req, res, next) => {
+app.delete("/api/items/:id", requireUser, writeLimiter, async (req, res, next) => {
   try {
     const result = await pool.query("DELETE FROM items WHERE id = $1 AND owner_id = $2 RETURNING id", [req.params.id, req.user.id]);
     if (!result.rows[0]) throw new ApiError(404, "ITEM_NOT_FOUND", "找不到這則內容");
@@ -562,7 +574,7 @@ app.delete("/api/items/:id", requireUser, async (req, res, next) => {
   }
 });
 
-app.post("/api/shares", requireUser, async (req, res, next) => {
+app.post("/api/shares", requireUser, writeLimiter, async (req, res, next) => {
   try {
     const itemId = typeof req.body?.itemId === "string" ? req.body.itemId : "";
     const access = req.body?.access === "link" ? "link" : "recipient";
@@ -690,6 +702,9 @@ async function initialize() {
     }
   } else {
     console.warn("STOW started without DATABASE_URL or PostgreSQL settings; account APIs are disabled");
+  }
+  if (isProduction && !appBaseUrl) {
+    console.warn("STOW: APP_BASE_URL is not set; generated links fall back to the request Host header. Set APP_BASE_URL in production.");
   }
   app.listen(port, host, () => console.log(`STOW listening on ${host}:${port}`));
 }
