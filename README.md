@@ -137,5 +137,8 @@ Never commit a production `.env` file to the canonical source repository.
 
 ## License
 
-STOW is released under the MIT License. See [LICENSE](LICENSE) for the full
+STOW is released under the KYL Open License. See [LICENSE](LICENSE) for the full
 license text.
+
+
+See [LICENSING.md](LICENSING.md) for license scope, third-party exceptions, and earlier-version notices.
